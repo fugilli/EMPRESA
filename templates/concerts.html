@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Concertos – Gestão de Empresa</title>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');})()</script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f0f2f5; font-family:system-ui,sans-serif; margin:0; }
+    .topbar { background:#1a1a2e; color:#fff; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; }
+    .brand { font-weight:600; font-size:1rem; }
+    .topbar-right { display:flex; align-items:center; gap:12px; }
+    .badge-cal { background:#4f8ef7; color:#fff; border-radius:20px; padding:3px 12px; font-size:.8rem; }
+    .btn-topbar { color:#fff; font-size:.78rem; border:1px solid rgba(255,255,255,.4); border-radius:5px; padding:4px 10px; text-decoration:none; cursor:pointer; background:none; }
+    .btn-topbar:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .tabs { background:#fff; border-bottom:2px solid #e5e7eb; display:flex; padding:0 24px; }
+    .tab { padding:12px 20px; font-size:.9rem; font-weight:500; color:#666; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .15s; cursor:pointer; }
+    .tab:hover { color:#1a1a2e; }
+    .tab.active { color:#1a1a2e; border-bottom-color:#4f8ef7; }
+
+    .filter-bar { background:#fff; border-bottom:1px solid #eee; padding:10px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    .filter-bar select { border:1px solid #ddd; border-radius:6px; padding:5px 10px; font-size:.85rem; outline:none; cursor:pointer; }
+    .filter-bar select:focus { border-color:#4f8ef7; }
+    .filter-label { font-size:.78rem; font-weight:600; color:#888; }
+    .totals-bar { margin-left:auto; display:flex; gap:20px; align-items:center; }
+    .total-item { font-size:.82rem; color:#555; }
+    .total-item strong { color:#1a1a2e; }
+    .btn-new { background:#4f8ef7; color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:.82rem; cursor:pointer; font-weight:500; white-space:nowrap; }
+    .btn-new:hover { background:#3a7ae0; }
+
+    .main { padding:20px 24px; }
+    .card { border:none; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); overflow:hidden; }
+    table { font-size:.88rem; margin:0; width:100%; }
+    th { background:#1a1a2e; color:#fff; font-weight:500; padding:10px !important; white-space:nowrap; }
+    td { padding:7px 8px !important; vertical-align:middle !important; border-bottom:1px solid #f0f0f0; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#f8f9ff; }
+    .ef { border:1px solid transparent; border-radius:5px; padding:4px 6px; width:100%; background:transparent; font-size:.88rem; outline:none; font-family:inherit; color:#222; min-width:70px; }
+    .ef:hover { border-color:#ddd; background:#fff; }
+    .ef:focus { border-color:#4f8ef7; background:#fff; box-shadow:0 0 0 2px rgba(79,142,247,.15); }
+    .ef.num-f { max-width:85px; }
+    .km-badge { background:#e8f5e9; color:#2e7d32; border-radius:20px; padding:2px 10px; font-size:.8rem; font-weight:600; white-space:nowrap; }
+    .km-loading { color:#aaa; font-size:.8rem; }
+    .km-none { color:#ccc; }
+    .btn-del-row { background:none; border:none; color:#ddd; font-size:1rem; cursor:pointer; padding:3px 7px; border-radius:4px; line-height:1; }
+    .btn-del-row:hover { color:#e53935; background:#fff0f0; }
+    .info-bar { font-size:.78rem; color:#999; margin-top:10px; }
+    .empty-state { text-align:center; padding:60px; color:#aaa; }
+
+    /* modal */
+    .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:500; align-items:center; justify-content:center; }
+    .modal-bg.open { display:flex; }
+    .modal-box { background:#fff; border-radius:12px; padding:28px 28px 24px; width:520px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,.18); }
+    .modal-box h3 { margin:0 0 20px; font-size:1.05rem; font-weight:600; color:#1a1a2e; }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modal-grid .full { grid-column:1/-1; }
+    .field-wrap { display:flex; flex-direction:column; gap:4px; }
+    .field-wrap label { font-size:.72rem; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.4px; }
+    .field-wrap input { border:1px solid #ddd; border-radius:6px; padding:7px 10px; font-size:.9rem; outline:none; }
+    .field-wrap input:focus { border-color:#4f8ef7; box-shadow:0 0 0 2px rgba(79,142,247,.15); }
+    .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+    .btn-cancel { background:#fff; color:#666; border:1px solid #ddd; border-radius:6px; padding:7px 16px; font-size:.88rem; cursor:pointer; }
+    .btn-cancel:hover { background:#f5f5f5; }
+    .btn-save { background:#4f8ef7; color:#fff; border:none; border-radius:6px; padding:7px 18px; font-size:.88rem; cursor:pointer; font-weight:500; }
+    .btn-save:hover { background:#3a7ae0; }
+
+    /* ── dark mode ─────────────────────────────────────────────────────────── */
+    html.dark body { background:#111318; color:#e0e6f0; }
+    html.dark .tabs { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .tab { color:#8b9ab0; }
+    html.dark .tab:hover { color:#e0e6f0; }
+    html.dark .tab.active { color:#e0e6f0; }
+    html.dark .filter-bar { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .filter-bar select { background:#1e2130; color:#e0e6f0; border-color:#3a3d4e; }
+    html.dark .filter-label { color:#8b9ab0; }
+    html.dark .total-item { color:#8b9ab0; }
+    html.dark .total-item strong { color:#e0e6f0; }
+    html.dark .card { background:#1e2130; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    html.dark th { background:#0d0f1a; }
+    html.dark td { color:#e0e6f0; border-bottom-color:#252838; }
+    html.dark tr:hover td { background:#252838; }
+    html.dark .info-bar { color:#5a6478; }
+    html.dark .empty-state { color:#5a6478; }
+    html.dark .ef { color:#e0e6f0; }
+    html.dark .ef:hover { border-color:#3a3d4e; background:#252838; }
+    html.dark .ef:focus { border-color:#4f8ef7; background:#252838; }
+    html.dark .btn-del-row { color:#3a3d4e; }
+    html.dark .btn-del-row:hover { background:#2a1515; }
+    html.dark .modal-bg { background:rgba(0,0,0,.7); }
+    html.dark .modal-box { background:#1e2130; }
+    html.dark .modal-box h3 { color:#e0e6f0; }
+    html.dark .field-wrap label { color:#8b9ab0; }
+    html.dark .field-wrap input { background:#252838; border-color:#3a3d4e; color:#e0e6f0; }
+    html.dark .btn-cancel { background:#252838; color:#8b9ab0; border-color:#3a3d4e; }
+    html.dark .btn-cancel:hover { background:#2e3148; }
+  </style>
+</head>
+<body>
+{% set active_tab = 'concerts' %}
+{% include '_nav.html' %}
+
+<div class="filter-bar">
+  <span class="filter-label">Ano</span>
+  <select id="yearSel" onchange="applyFilter()">
+    <option value="">Todos</option>
+  </select>
+  <span class="filter-label">Mês</span>
+  <select id="monthSel" onchange="applyFilter()">
+    <option value="">Todos</option>
+    <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+    <option value="3">Março</option><option value="4">Abril</option>
+    <option value="5">Maio</option><option value="6">Junho</option>
+    <option value="7">Julho</option><option value="8">Agosto</option>
+    <option value="9">Setembro</option><option value="10">Outubro</option>
+    <option value="11">Novembro</option><option value="12">Dezembro</option>
+  </select>
+  <span class="filter-label">Artista</span>
+  <select id="artistSel" onchange="applyFilter()">
+    <option value="">Todos</option>
+  </select>
+  <button class="btn-new" onclick="openAddModal()">+ Novo Concerto</button>
+  <div class="totals-bar">
+    <div class="total-item">Concertos: <strong id="tCount">—</strong></div>
+    <div class="total-item">Cachet total: <strong id="tCachet">—</strong></div>
+    <div class="total-item" id="tAnnualWrap" style="display:none">Anual: <strong id="tAnnual">—</strong></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="card">
+    {% if concerts %}
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>Hora</th><th>Artista</th><th>Evento</th>
+            <th>Local</th><th>Substituto</th><th>Cachet €</th><th>Km (i+v)</th>
+            <th style="width:36px"></th>
+          </tr>
+        </thead>
+        <tbody id="concertsBody">
+          {% for c in concerts %}
+          <tr data-year="{{ c.year }}" data-month="{{ c.month }}" data-cachet="{{ c.cachet }}" data-id="{{ c.id }}" data-artista="{{ c.artista }}">
+            <td><strong>{{ c.date }}</strong></td>
+            <td style="color:#888">{{ c.time or '—' }}</td>
+            <td><input class="ef" data-field="artista"    data-id="{{ c.id }}" value="{{ c.artista }}"    placeholder="Artista"></td>
+            <td><input class="ef" data-field="evento"     data-id="{{ c.id }}" value="{{ c.evento }}"     placeholder="Evento"></td>
+            <td><input class="ef" data-field="local"      data-id="{{ c.id }}" value="{{ c.local }}"      placeholder="Local"></td>
+            <td><input class="ef" data-field="substituto" data-id="{{ c.id }}" value="{{ c.substituto }}" placeholder="—"></td>
+            <td><input class="ef num-f" type="number" step="0.01" min="0" data-field="cachet" data-id="{{ c.id }}" value="{{ c.cachet }}" placeholder="0" onchange="this.closest('tr').dataset.cachet=this.value; applyFilter()"></td>
+            <td class="km-td">
+              {% if c.km != '' %}<span class="km-badge">{{ c.km }} km</span>{% else %}<span class="km-none">—</span>{% endif %}
+            </td>
+            <td><button class="btn-del-row" onclick="deleteConcert('{{ c.id }}', this)" title="Eliminar concerto">✕</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      {% if last_sync %}
+      <p>Nenhum concerto encontrado para este período.</p>
+      {% else %}
+      <p>Sem dados locais.</p>
+      <p style="font-size:.85rem;color:#bbb">Clica em <strong>↻ Sincronizar</strong> na barra superior para carregar os dados do Google Calendar.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <p class="info-bar">Km = ida + volta desde Rua de Macau, Coimbra · Clica num campo para editar</p>
+</div>
+
+<!-- modal: novo concerto -->
+<div class="modal-bg" id="addModal" onclick="if(event.target===this) closeAddModal()">
+  <div class="modal-box">
+    <h3>Novo Concerto</h3>
+    <form onsubmit="submitAdd(event)">
+      <div class="modal-grid">
+        <div class="field-wrap">
+          <label>Data *</label>
+          <input type="date" id="fDate" required>
+        </div>
+        <div class="field-wrap">
+          <label>Hora</label>
+          <input type="time" id="fTime">
+        </div>
+        <div class="field-wrap">
+          <label>Artista</label>
+          <input type="text" id="fArtista" list="artistasList" placeholder="Nome do artista" autocomplete="off">
+        </div>
+        <div class="field-wrap">
+          <label>Evento</label>
+          <input type="text" id="fEvento" placeholder="Nome do evento">
+        </div>
+        <div class="field-wrap full">
+          <label>Local</label>
+          <input type="text" id="fLocal" placeholder="Local do concerto">
+        </div>
+        <div class="field-wrap">
+          <label>Substituto</label>
+          <input type="text" id="fSubstituto" placeholder="—">
+        </div>
+        <div class="field-wrap">
+          <label>Cachet €</label>
+          <input type="number" id="fCachet" step="0.01" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
+        <button type="submit" class="btn-save" id="btnSave">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<datalist id="artistasList"></datalist>
+
+<script>
+const DATA = {{ concerts_json | safe }};
+const fmt  = n => '€' + Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+// popular anos
+const years = [...new Set(DATA.map(d=>d.year).filter(y=>y>0))].sort();
+const ySel  = document.getElementById('yearSel');
+years.forEach(y => { const o=document.createElement('option'); o.value=o.textContent=y; ySel.appendChild(o); });
+const curYear = new Date().getFullYear();
+if (years.includes(curYear)) ySel.value = curYear;
+
+// popular datalist de artistas
+const artists = [...new Set(DATA.map(d=>d.artista).filter(Boolean))].sort();
+document.getElementById('artistasList').innerHTML = artists.map(a => `<option value="${esc(a)}">`).join('');
+const artistSel = document.getElementById('artistSel');
+artists.forEach(a => { const o = document.createElement('option'); o.value = o.textContent = a; artistSel.appendChild(o); });
+
+function applyFilter() {
+  const year   = parseInt(ySel.value)  || 0;
+  const month  = parseInt(document.getElementById('monthSel').value) || 0;
+  const artist = document.getElementById('artistSel').value;
+  let count=0, totalCachet=0, annualCachet=0;
+
+  document.querySelectorAll('#concertsBody tr[data-year]').forEach(row => {
+    const ry = parseInt(row.dataset.year), rm = parseInt(row.dataset.month);
+    const inYear   = !year   || ry === year;
+    const inMonth  = !month  || rm === month;
+    const inArtist = !artist || (row.dataset.artista || '') === artist;
+    const show     = inYear && inMonth && inArtist;
+    row.style.display = show ? '' : 'none';
+    const v = parseFloat(row.dataset.cachet) || 0;
+    if (show)              { count++; totalCachet += v; }
+    if (inYear && inArtist) { annualCachet += v; }
+  });
+
+  document.getElementById('tCount').textContent  = count;
+  document.getElementById('tCachet').textContent = fmt(totalCachet);
+  const showAnnual = month > 0 && year > 0;
+  document.getElementById('tAnnualWrap').style.display = showAnnual ? '' : 'none';
+  document.getElementById('tAnnual').textContent = fmt(annualCachet);
+}
+
+applyFilter();
+
+// edição inline
+document.querySelectorAll('.ef').forEach(input => {
+  let orig = input.value;
+  input.addEventListener('focus', () => { orig = input.value; });
+  input.addEventListener('blur',  () => {
+    if (input.value === orig) return;
+    const field = input.dataset.field, id = input.dataset.id, value = input.value;
+    if (field === 'local') {
+      const td = input.closest('tr').querySelector('.km-td');
+      td.innerHTML = '<span class="km-loading">a calcular…</span>';
+    }
+    fetch('/api/update_concert', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({event_id:id, field, value})
+    }).then(r=>r.json()).then(d => {
+      if (d.ok && field==='local') {
+        const td = input.closest('tr').querySelector('.km-td');
+        td.innerHTML = d.km != null ? `<span class="km-badge">${d.km} km</span>` : '<span class="km-none">—</span>';
+      }
+      if (d.ok && field==='substituto') {
+        const row = input.closest('tr');
+        const cachetInput = row.querySelector('input[data-field="cachet"]');
+        if (value) {
+          cachetInput.value = '0';
+          row.dataset.cachet = '0';
+        } else {
+          // sem substituto: recarrega para mostrar cachet original
+          window.location.reload();
+        }
+        applyFilter();
+      }
+      input.style.borderColor='#2e7d32';
+      setTimeout(()=>input.style.borderColor='',800);
+      orig = input.value;
+    });
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key==='Enter')  input.blur();
+    if (e.key==='Escape') { input.value=orig; input.blur(); }
+  });
+});
+
+// ── eliminar concerto ──────────────────────────────────────────────────────
+async function deleteConcert(id, btn) {
+  if (!confirm('Eliminar este concerto da lista local?\n(Não afecta o Google Calendar)')) return;
+  const res  = await fetch('/api/delete_concert', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({event_id: id})
+  });
+  const d = await res.json();
+  if (d.ok) {
+    btn.closest('tr').remove();
+    applyFilter();
+  } else {
+    alert('Erro: ' + (d.error || 'desconhecido'));
+  }
+}
+
+// ── adicionar concerto ─────────────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('addModal').classList.add('open');
+  document.getElementById('fDate').focus();
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('open');
+  document.getElementById('fDate').value = '';
+  document.getElementById('fTime').value = '';
+  document.getElementById('fArtista').value = '';
+  document.getElementById('fEvento').value = '';
+  document.getElementById('fLocal').value = '';
+  document.getElementById('fSubstituto').value = '';
+  document.getElementById('fCachet').value = '';
+}
+
+async function submitAdd(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true;
+  btn.textContent = 'A guardar…';
+
+  const res = await fetch('/api/add_concert', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      date:       document.getElementById('fDate').value,
+      time:       document.getElementById('fTime').value,
+      artista:    document.getElementById('fArtista').value,
+      evento:     document.getElementById('fEvento').value,
+      local:      document.getElementById('fLocal').value,
+      substituto: document.getElementById('fSubstituto').value,
+      cachet:     document.getElementById('fCachet').value,
+    })
+  });
+  const d = await res.json();
+  if (d.ok) {
+    window.location.reload();
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Guardar';
+    alert('Erro: ' + (d.error || 'desconhecido'));
+  }
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Despesas – Gestão de Empresa</title>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');})()</script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f0f2f5; font-family:system-ui,sans-serif; margin:0; }
+    .topbar { background:#1a1a2e; color:#fff; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; }
+    .brand { font-weight:600; font-size:1rem; }
+    .topbar-right { display:flex; align-items:center; gap:12px; }
+    .badge-cal { background:#4f8ef7; color:#fff; border-radius:20px; padding:3px 12px; font-size:.8rem; }
+    .btn-topbar { color:#fff; font-size:.78rem; border:1px solid rgba(255,255,255,.4); border-radius:5px; padding:4px 10px; text-decoration:none; cursor:pointer; background:none; }
+    .btn-topbar:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .tabs { background:#fff; border-bottom:2px solid #e5e7eb; display:flex; padding:0 24px; }
+    .tab { padding:12px 20px; font-size:.9rem; font-weight:500; color:#666; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .15s; }
+    .tab:hover { color:#1a1a2e; }
+    .tab.active { color:#1a1a2e; border-bottom-color:#4f8ef7; }
+
+    .filter-bar { background:#fff; border-bottom:1px solid #eee; padding:10px 24px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .filter-label { font-size:.78rem; font-weight:600; color:#888; }
+    select.filter-sel { border:1px solid #d1d5db; border-radius:6px; padding:4px 10px; font-size:.82rem; background:#fff; color:#555; cursor:pointer; }
+    .btn-view { border:1px solid #d1d5db; border-radius:6px; padding:4px 14px; font-size:.82rem; cursor:pointer; background:#fff; color:#555; }
+    .btn-view.active { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+    .btn-csv { background:#e8f5e9; color:#2e7d32; border:none; border-radius:6px; padding:3px 10px; font-size:.75rem; font-weight:600; cursor:pointer; }
+    .btn-csv:hover { background:#c8e6c9; }
+
+    .summary-bar { background:#fff; border-bottom:1px solid #eee; padding:8px 24px; display:flex; gap:24px; flex-wrap:wrap; }
+    .sum-item { display:flex; flex-direction:column; align-items:flex-start; }
+    .sum-label { font-size:.7rem; font-weight:600; color:#999; text-transform:uppercase; letter-spacing:.04em; }
+    .sum-value { font-size:.95rem; font-weight:700; color:#1a1a2e; }
+    .sum-value.ded { color:#1a5c34; }
+    .sum-value.nded { color:#b71c1c; }
+    .sum-value.ta { color:#e65100; }
+
+    .main { padding:20px 24px; }
+    .card { border:none; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); background:#fff; margin-bottom:18px; overflow:hidden; }
+    .card-head { padding:12px 18px; font-weight:700; font-size:.92rem; color:#1a1a2e; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+
+    table { font-size:.83rem; margin:0; width:100%; }
+    th { background:#1a1a2e; color:#fff; font-weight:500; padding:9px 10px !important; white-space:nowrap; }
+    td { padding:8px 10px !important; vertical-align:middle !important; border-bottom:1px solid #f0f0f0; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#f8f9ff; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .mono { font-family:ui-monospace,monospace; font-size:.78rem; }
+    .num-ded  { color:#1a5c34; }
+    .num-nded { color:#b71c1c; }
+    .num-ta   { color:#e65100; }
+
+    .badge-rep { display:inline-block; background:#fff3e0; color:#e65100; border:1px solid #ffe082; border-radius:4px; padding:1px 6px; font-size:.7rem; font-weight:700; white-space:nowrap; }
+    .badge-iva-lim { display:inline-block; background:#fce4ec; color:#ad1457; border:1px solid #f48fb1; border-radius:4px; padding:1px 6px; font-size:.7rem; font-weight:700; white-space:nowrap; }
+
+    /* Por Conta SNC view */
+    .snc-group { margin-bottom:18px; }
+    .snc-group-head { background:#f5f7fa; border-radius:8px 8px 0 0; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; border:1px solid #e5e7eb; border-bottom:none; }
+    .snc-account { font-weight:700; color:#1a1a2e; font-size:.9rem; }
+    .snc-desc { font-size:.8rem; color:#666; margin-left:10px; }
+    .snc-totals { display:flex; gap:20px; font-size:.82rem; }
+    .snc-totals span { display:flex; flex-direction:column; align-items:flex-end; }
+    .snc-totals .lbl { font-size:.68rem; color:#999; }
+    .snc-totals .val { font-weight:600; color:#1a1a2e; }
+    .snc-totals .val.ta-val { color:#e65100; }
+    .snc-table-wrap { border:1px solid #e5e7eb; border-radius:0 0 8px 8px; overflow:hidden; }
+
+    .empty-state { text-align:center; padding:60px; color:#aaa; }
+
+    .info-box { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:10px 16px; font-size:.8rem; color:#1b5e20; margin-bottom:16px; }
+    .info-box strong { color:#1a5c34; }
+
+    /* dark */
+    html.dark body { background:#111318; color:#e0e6f0; }
+    html.dark .tabs { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .tab { color:#8b9ab0; }
+    html.dark .tab:hover { color:#e0e6f0; }
+    html.dark .tab.active { color:#e0e6f0; }
+    html.dark .filter-bar { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .filter-label { color:#8b9ab0; }
+    html.dark select.filter-sel { background:#1e2130; color:#e0e6f0; border-color:#3a3d4e; }
+    html.dark .btn-view { background:#1e2130; color:#8b9ab0; border-color:#3a3d4e; }
+    html.dark .btn-view.active { background:#4f8ef7; color:#fff; border-color:#4f8ef7; }
+    html.dark .summary-bar { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .sum-label { color:#5a6478; }
+    html.dark .sum-value { color:#e0e6f0; }
+    html.dark .sum-value.ded { color:#69f0ae; }
+    html.dark .sum-value.nded { color:#ff6e6e; }
+    html.dark .sum-value.ta { color:#ffb74d; }
+    html.dark .card { background:#1e2130; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    html.dark .card-head { color:#e0e6f0; border-bottom-color:#2a2d3e; }
+    html.dark th { background:#0d0f1a; }
+    html.dark td { color:#e0e6f0; border-bottom-color:#252838; }
+    html.dark tr:hover td { background:#252838; }
+    html.dark .snc-group-head { background:#1a1d2e; border-color:#2a2d3e; }
+    html.dark .snc-account { color:#e0e6f0; }
+    html.dark .snc-desc { color:#8b9ab0; }
+    html.dark .snc-totals .lbl { color:#5a6478; }
+    html.dark .snc-totals .val { color:#e0e6f0; }
+    html.dark .snc-totals .val.ta-val { color:#ffb74d; }
+    html.dark .snc-table-wrap { border-color:#2a2d3e; }
+    html.dark .badge-rep { background:#3a1800; color:#ffb74d; border-color:#5a3010; }
+    html.dark .badge-iva-lim { background:#2a0014; color:#f48fb1; border-color:#4a0028; }
+    html.dark .empty-state { color:#5a6478; }
+    html.dark .info-box { background:#0d2010; border-color:#1b4025; color:#69f0ae; }
+    html.dark .info-box strong { color:#69f0ae; }
+    html.dark .snc-group-head .snc-totals .val { color:#e0e6f0; }
+    html.dark .num-ded  { color:#69f0ae !important; }
+    html.dark .num-nded { color:#ff6e6e !important; }
+    html.dark .num-ta   { color:#ffb74d !important; }
+    html.dark tfoot tr  { background:#1a1d2e !important; }
+  </style>
+</head>
+<body>
+{% set active_tab = 'despesas' %}
+{% include '_nav.html' %}
+
+<div class="filter-bar">
+  <span class="filter-label">Vista:</span>
+  <button class="btn-view active" id="btnLista"   onclick="setView('lista')">Lista detalhada</button>
+  <button class="btn-view"        id="btnSNC"     onclick="setView('snc')">Por Conta SNC</button>
+
+  <span class="filter-label" style="margin-left:16px">Ano:</span>
+  <select class="filter-sel" id="anoSel" onchange="render()"></select>
+
+  <span class="filter-label">Mês:</span>
+  <select class="filter-sel" id="mesSel" onchange="render()">
+    <option value="">Todos</option>
+    <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+    <option value="03">Março</option><option value="04">Abril</option>
+    <option value="05">Maio</option><option value="06">Junho</option>
+    <option value="07">Julho</option><option value="08">Agosto</option>
+    <option value="09">Setembro</option><option value="10">Outubro</option>
+    <option value="11">Novembro</option><option value="12">Dezembro</option>
+  </select>
+
+  <span class="filter-label">Categoria:</span>
+  <select class="filter-sel" id="catSel" onchange="render()">
+    <option value="">Todas</option>
+  </select>
+
+  <div style="margin-left:auto">
+    <button class="btn-csv" onclick="exportarCSV()">⬇ Exportar CSV</button>
+  </div>
+</div>
+
+<div class="summary-bar" id="summaryBar"></div>
+
+<div class="main" id="mainContainer"></div>
+
+<!-- Config fiscal modal (reutilizado da conta corrente via iframe equiv.) -->
+
+<script>
+const ALL_ROWS = {{ despesas_json | safe }};
+
+const MESES_PT = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const IVA_FACTOR_LABEL = {
+  'Alimentação e Bebidas':        '0% IVA ded. (art.21.º CIVA)',
+  'Alojamento e Hotelaria':       '0% IVA ded. (art.21.º CIVA)',
+  'Combustíveis e Lubrificantes': '50% IVA ded. (art.21.º CIVA)',
+};
+
+let currentView = 'lista';
+
+// ── init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  // populate year selector
+  const years = [...new Set(ALL_ROWS.map(r => (r.data_fatura||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  if (!years.length) years.push(new Date().getFullYear().toString());
+  const anoSel = document.getElementById('anoSel');
+  years.forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; anoSel.appendChild(o); });
+
+  // populate category selector
+  const cats = [...new Set(ALL_ROWS.map(r => r.tipo_despesa || 'Outros'))].sort();
+  const catSel = document.getElementById('catSel');
+  cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; catSel.appendChild(o); });
+
+  render();
+})();
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('btnLista').classList.toggle('active', v === 'lista');
+  document.getElementById('btnSNC').classList.toggle('active', v === 'snc');
+  render();
+}
+
+function getFiltered() {
+  const ano = document.getElementById('anoSel').value;
+  const mes = document.getElementById('mesSel').value;
+  const cat = document.getElementById('catSel').value;
+  return ALL_ROWS.filter(r => {
+    const d = r.data_fatura || '';
+    if (ano && !d.startsWith(ano)) return false;
+    if (mes && d.slice(5,7) !== mes) return false;
+    if (cat && (r.tipo_despesa || 'Outros') !== cat) return false;
+    return true;
+  });
+}
+
+function fmt(v) {
+  return (v || 0).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+}
+
+// ── summary bar ───────────────────────────────────────────────────────────────
+function renderSummary(rows) {
+  const n       = rows.length;
+  const base    = rows.reduce((s,r) => s + (r.base_tributavel||0), 0);
+  const ivaB    = rows.reduce((s,r) => s + (r.iva||0), 0);
+  const ivaDed  = rows.reduce((s,r) => s + (r.iva_deducivel_calc||0), 0);
+  const ivaNDed = rows.reduce((s,r) => s + (r.iva_nao_deducivel||0), 0);
+  const cIRC    = rows.reduce((s,r) => s + (r.custo_irc||0), 0);
+  const ta      = rows.reduce((s,r) => s + (r.tributacao_autonoma_val||0), 0);
+
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="sum-item"><span class="sum-label">Faturas</span><span class="sum-value">${n}</span></div>
+    <div class="sum-item"><span class="sum-label">Base tributável</span><span class="sum-value">${fmt(base)}</span></div>
+    <div class="sum-item"><span class="sum-label">IVA bruto</span><span class="sum-value">${fmt(ivaB)}</span></div>
+    <div class="sum-item"><span class="sum-label">IVA dedutível</span><span class="sum-value ded">${fmt(ivaDed)}</span></div>
+    <div class="sum-item"><span class="sum-label">IVA não dedutível</span><span class="sum-value nded">${fmt(ivaNDed)}</span></div>
+    <div class="sum-item"><span class="sum-label">Custo IRC</span><span class="sum-value">${fmt(cIRC)}</span></div>
+    ${ta > 0 ? `<div class="sum-item"><span class="sum-label">Trib. Autónoma (10%)</span><span class="sum-value ta">${fmt(ta)}</span></div>` : ''}
+  `;
+}
+
+// ── main render ───────────────────────────────────────────────────────────────
+function render() {
+  const rows = getFiltered();
+  renderSummary(rows);
+  if (currentView === 'lista') renderLista(rows);
+  else renderSNC(rows);
+}
+
+// ── Lista detalhada ───────────────────────────────────────────────────────────
+function renderLista(rows) {
+  if (!rows.length) {
+    document.getElementById('mainContainer').innerHTML =
+      '<div class="empty-state">Sem despesas para os filtros seleccionados.<br>Clique em ↻ Sync Despesas para importar dados.</div>';
+    return;
+  }
+
+  let html = `
+    <div class="info-box">
+      <strong>Classificação IVA (art. 21.º CIVA):</strong>
+      Alimentação/Bebidas e Alojamento/Hotelaria → IVA 0% dedutível.
+      Combustíveis → IVA 50% dedutível. Restantes categorias → IVA 100% dedutível.<br>
+      <strong>Tributação Autónoma (art. 88.º n.º 7 CIRC):</strong>
+      Despesas de representação (Alimentação/Hotelaria) sujeitas a 10% sobre o custo IRC.
+    </div>
+    <div class="card">
+      <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Data</th>
+          <th>Fornecedor</th>
+          <th>NIF</th>
+          <th>N.º Fatura</th>
+          <th>Categoria</th>
+          <th>Conta SNC</th>
+          <th class="num">Base (€)</th>
+          <th class="num">IVA Bruto</th>
+          <th class="num">IVA Ded.</th>
+          <th class="num">IVA N.Ded.</th>
+          <th class="num">Custo IRC</th>
+          <th class="num">Trib. Aut.</th>
+          <th class="num">Total</th>
+        </tr></thead>
+        <tbody>`;
+
+  rows.forEach(r => {
+    const dataFmt   = fmtData(r.data_fatura);
+    const ivaBruto  = r.iva || 0;
+    const ivaDed    = r.iva_deducivel_calc || 0;
+    const ivaNDed   = r.iva_nao_deducivel || 0;
+    const cIRC      = r.custo_irc || 0;
+    const ta        = r.tributacao_autonoma_val || 0;
+    const isRep     = r.is_representacao;
+    const ivaFactor = r.iva_fator;
+
+    const catBadge  = IVA_FACTOR_LABEL[r.tipo_despesa]
+      ? ` <span class="badge-iva-lim">${IVA_FACTOR_LABEL[r.tipo_despesa]}</span>` : '';
+    const repBadge  = isRep ? ' <span class="badge-rep">repr.</span>' : '';
+
+    html += `<tr>
+      <td class="mono">${dataFmt}</td>
+      <td>${esc(r.fornecedor||'')}</td>
+      <td class="mono">${esc(r.nif||'')}</td>
+      <td class="mono">${esc(r.numero_fatura||'')}</td>
+      <td>${esc(r.tipo_despesa||'Outros')}${catBadge}${repBadge}</td>
+      <td><span class="mono" style="font-weight:600">${esc(r.snc_conta||'')}</span> <span style="font-size:.75rem;color:#888">${esc(r.snc_descricao||'')}</span></td>
+      <td class="num">${fmtN(r.base_tributavel)}</td>
+      <td class="num">${fmtN(ivaBruto)}</td>
+      <td class="num ${ivaDed>0?'num-ded':''}">${fmtN(ivaDed)}</td>
+      <td class="num ${ivaNDed>0?'num-nded':''}">${fmtN(ivaNDed)}</td>
+      <td class="num" style="font-weight:600">${fmtN(cIRC)}</td>
+      <td class="num ${ta>0?'num-ta':''}">${ta>0?fmtN(ta):'—'}</td>
+      <td class="num">${fmtN(r.total)}</td>
+    </tr>`;
+  });
+
+  // totals row
+  const tBase  = rows.reduce((s,r)=>s+(r.base_tributavel||0),0);
+  const tIvaB  = rows.reduce((s,r)=>s+(r.iva||0),0);
+  const tIvaD  = rows.reduce((s,r)=>s+(r.iva_deducivel_calc||0),0);
+  const tIvaN  = rows.reduce((s,r)=>s+(r.iva_nao_deducivel||0),0);
+  const tCIRC  = rows.reduce((s,r)=>s+(r.custo_irc||0),0);
+  const tTA    = rows.reduce((s,r)=>s+(r.tributacao_autonoma_val||0),0);
+  const tTot   = rows.reduce((s,r)=>s+(r.total||0),0);
+
+  html += `</tbody>
+    <tfoot><tr style="background:#f5f7fa;font-weight:700">
+      <td colspan="6" style="font-size:.82rem;padding:9px 10px">TOTAL (${rows.length} faturas)</td>
+      <td class="num">${fmtN(tBase)}</td>
+      <td class="num">${fmtN(tIvaB)}</td>
+      <td class="num num-ded">${fmtN(tIvaD)}</td>
+      <td class="num num-nded">${fmtN(tIvaN)}</td>
+      <td class="num">${fmtN(tCIRC)}</td>
+      <td class="num ${tTA>0?'num-ta':''}">${tTA>0?fmtN(tTA):'—'}</td>
+      <td class="num">${fmtN(tTot)}</td>
+    </tr></tfoot>
+  </table></div></div>`;
+
+  document.getElementById('mainContainer').innerHTML = html;
+}
+
+// ── Por Conta SNC ─────────────────────────────────────────────────────────────
+function renderSNC(rows) {
+  if (!rows.length) {
+    document.getElementById('mainContainer').innerHTML =
+      '<div class="empty-state">Sem despesas para os filtros seleccionados.</div>';
+    return;
+  }
+
+  // group by snc_conta
+  const groups = {};
+  rows.forEach(r => {
+    const key = (r.snc_conta||'628') + '||' + (r.snc_descricao||'Outros FSE');
+    if (!groups[key]) groups[key] = { conta: r.snc_conta||'628', desc: r.snc_descricao||'Outros FSE', rows: [] };
+    groups[key].rows.push(r);
+  });
+
+  const sortedKeys = Object.keys(groups).sort();
+
+  let html = `<div class="info-box">
+    <strong>SNC (DL 158/2009):</strong> Classe 62 – Fornecimentos e Serviços Externos.
+    IVA não dedutível integra o custo IRC (art. 23.º CIRC).
+    Tributação autónoma 10% sobre despesas de representação (art. 88.º n.º 7 CIRC).
+  </div>`;
+
+  sortedKeys.forEach(key => {
+    const g      = groups[key];
+    const tBase  = g.rows.reduce((s,r)=>s+(r.base_tributavel||0),0);
+    const tIvaD  = g.rows.reduce((s,r)=>s+(r.iva_deducivel_calc||0),0);
+    const tIvaN  = g.rows.reduce((s,r)=>s+(r.iva_nao_deducivel||0),0);
+    const tCIRC  = g.rows.reduce((s,r)=>s+(r.custo_irc||0),0);
+    const tTA    = g.rows.reduce((s,r)=>s+(r.tributacao_autonoma_val||0),0);
+
+    html += `<div class="snc-group">
+      <div class="snc-group-head">
+        <div>
+          <span class="snc-account mono">${esc(g.conta)}</span>
+          <span class="snc-desc">${esc(g.desc)}</span>
+          <span style="font-size:.75rem;color:#aaa;margin-left:8px">(${g.rows.length} fatura${g.rows.length!==1?'s':''})</span>
+        </div>
+        <div class="snc-totals">
+          <span><span class="lbl">Base</span><span class="val">${fmtN(tBase)}</span></span>
+          <span><span class="lbl">IVA ded.</span><span class="val" style="color:#1a5c34">${fmtN(tIvaD)}</span></span>
+          <span><span class="lbl">IVA n.ded.</span><span class="val" style="color:#b71c1c">${fmtN(tIvaN)}</span></span>
+          <span><span class="lbl">Custo IRC</span><span class="val">${fmtN(tCIRC)}</span></span>
+          ${tTA>0?`<span><span class="lbl">Trib. Aut.</span><span class="val ta-val">${fmtN(tTA)}</span></span>`:''}
+        </div>
+      </div>
+      <div class="snc-table-wrap">
+      <table>
+        <thead><tr>
+          <th>Data</th>
+          <th>Fornecedor</th>
+          <th>Categoria</th>
+          <th class="num">Base</th>
+          <th class="num">IVA Ded.</th>
+          <th class="num">IVA N.Ded.</th>
+          <th class="num">Custo IRC</th>
+          <th class="num">Trib. Aut.</th>
+        </tr></thead>
+        <tbody>`;
+
+    g.rows.forEach(r => {
+      const ivaDed  = r.iva_deducivel_calc || 0;
+      const ivaNDed = r.iva_nao_deducivel  || 0;
+      const cIRC    = r.custo_irc          || 0;
+      const ta      = r.tributacao_autonoma_val || 0;
+      const ivaNote = IVA_FACTOR_LABEL[r.tipo_despesa] ? ` <span class="badge-iva-lim" style="font-size:.65rem">${IVA_FACTOR_LABEL[r.tipo_despesa]}</span>` : '';
+      const repNote = r.is_representacao ? ' <span class="badge-rep" style="font-size:.65rem">repr.</span>' : '';
+
+      html += `<tr>
+        <td class="mono">${fmtData(r.data_fatura)}</td>
+        <td>${esc(r.fornecedor||'')}</td>
+        <td>${esc(r.tipo_despesa||'Outros')}${ivaNote}${repNote}</td>
+        <td class="num">${fmtN(r.base_tributavel)}</td>
+        <td class="num ${ivaDed>0?'num-ded':''}">${fmtN(ivaDed)}</td>
+        <td class="num ${ivaNDed>0?'num-nded':''}">${fmtN(ivaNDed)}</td>
+        <td class="num">${fmtN(cIRC)}</td>
+        <td class="num ${ta>0?'num-ta':''}">${ta>0?fmtN(ta):'—'}</td>
+      </tr>`;
+    });
+
+    // group subtotal
+    html += `</tbody>
+      <tfoot><tr style="background:#f5f7fa;font-weight:700;font-size:.82rem">
+        <td colspan="3" style="padding:8px 10px">Subtotal ${esc(g.conta)}</td>
+        <td class="num">${fmtN(tBase)}</td>
+        <td class="num num-ded">${fmtN(tIvaD)}</td>
+        <td class="num num-nded">${fmtN(tIvaN)}</td>
+        <td class="num">${fmtN(tCIRC)}</td>
+        <td class="num ${tTA>0?'num-ta':''}">${tTA>0?fmtN(tTA):'—'}</td>
+      </tr></tfoot>
+    </table></div></div>`;
+  });
+
+  document.getElementById('mainContainer').innerHTML = html;
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────────
+function exportarCSV() {
+  const rows = getFiltered();
+  if (!rows.length) { alert('Sem dados para exportar.'); return; }
+
+  const sep = ';';
+  const dec = v => (v||0).toFixed(2).replace('.',',');
+  const header = ['Data','Fornecedor','NIF','N.º Fatura','Descrição','Categoria',
+                  'Conta SNC','Desc. SNC','Base Trib.','IVA Bruto','IVA Dedutível',
+                  'IVA Não Ded.','Custo IRC','Trib. Autónoma','Total','Moeda','Fator IVA'].join(sep);
+
+  const body = rows.map(r => [
+    r.data_fatura||'',
+    (r.fornecedor||'').replace(/;/g,','),
+    r.nif||'',
+    (r.numero_fatura||'').replace(/;/g,','),
+    (r.descricao||'').replace(/;/g,','),
+    r.tipo_despesa||'Outros',
+    r.snc_conta||'',
+    (r.snc_descricao||'').replace(/;/g,','),
+    dec(r.base_tributavel), dec(r.iva),
+    dec(r.iva_deducivel_calc), dec(r.iva_nao_deducivel),
+    dec(r.custo_irc), dec(r.tributacao_autonoma_val),
+    dec(r.total), r.moeda||'EUR',
+    dec(r.iva_fator*100)+'%',
+  ].join(sep)).join('\n');
+
+  const csv = '\uFEFF' + header + '\n' + body;
+  fetch('/api/export_csv', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ filename: 'despesas.csv', content: csv })
+  }).then(r=>r.json()).then(d => {
+    if (d.ok) alert('CSV guardado em ' + d.path);
+    else alert('Erro: ' + (d.error||'desconhecido'));
+  }).catch(()=>alert('Erro ao exportar CSV.'));
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function fmtN(v) {
+  return (v||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtData(d) {
+  if (!d) return '';
+  const parts = d.split('-');
+  if (parts.length===3) return parts[2]+'/'+parts[1]+'/'+parts[0];
+  return d;
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

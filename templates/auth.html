@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Autenticação – Gestão de Empresa</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f0f2f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { max-width: 480px; width: 100%; border: none; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,.1); padding: 48px 40px; text-align: center; }
+    .logo { font-size: 2.5rem; margin-bottom: 16px; }
+    h2 { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; }
+    p { color: #666; font-size: .95rem; margin-bottom: 32px; }
+    .btn-google { background: #4285F4; color: #fff; border: none; border-radius: 8px; padding: 12px 28px; font-size: 1rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-google:hover { background: #3367d6; }
+    .btn-google:disabled { background: #aaa; cursor: default; }
+    .status { margin-top: 24px; font-size: .88rem; color: #888; min-height: 22px; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🎵</div>
+  <h2>Gestão de Empresa</h2>
+  <p>Para aceder ao teu Google Calendar é necessário autenticar a app.<br>
+     Clica no botão — o browser abre para confirmares o acesso.</p>
+
+  <button class="btn-google" id="btnAuth" onclick="startAuth()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#fff" d="M44.5 20H24v8.5h11.7C34.1 33.9 29.6 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 6 1.1 8.1 3l6-6C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/></svg>
+    Autenticar com Google
+  </button>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+  function startAuth() {
+    const btn = document.getElementById('btnAuth');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    status.textContent = 'A abrir o browser para autenticação...';
+
+    fetch('/auth/start').then(() => {
+      status.textContent = 'Aguarda... autoriza no browser e volta aqui.';
+      pollStatus();
+    });
+  }
+
+  function pollStatus() {
+    fetch('/auth/status')
+      .then(r => r.json())
+      .then(data => {
+        if (data.done) {
+          document.getElementById('status').textContent = 'Autenticado! A carregar...';
+          window.location.href = '/';
+        } else {
+          setTimeout(pollStatus, 1500);
+        }
+      });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Erro – Gestão de Empresa</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #fff8f8; padding: 40px; }
+    h2 { color: #c62828; }
+    .msg { background: #fff; border: 1px solid #f5c6cb; border-radius: 8px; padding: 16px 20px; margin: 16px 0; font-size: .95rem; }
+    pre { background: #1a1a1a; color: #f8f8f8; border-radius: 8px; padding: 16px; font-size: .78rem; overflow-x: auto; white-space: pre-wrap; }
+    a { color: #4f8ef7; }
+  </style>
+</head>
+<body>
+  <h2>Erro na aplicação</h2>
+  <div class="msg"><strong>{{ error }}</strong></div>
+  <pre>{{ detail }}</pre>
+  <p><a href="/">Tentar novamente</a></p>
+</body>
+</html>

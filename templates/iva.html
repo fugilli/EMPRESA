@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>IVA – Gestão de Empresa</title>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');})()</script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f0f2f5; font-family:system-ui,sans-serif; margin:0; }
+    .topbar { background:#1a1a2e; color:#fff; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; }
+    .brand { font-weight:600; font-size:1rem; }
+    .topbar-right { display:flex; align-items:center; gap:12px; }
+    .badge-cal { background:#4f8ef7; color:#fff; border-radius:20px; padding:3px 12px; font-size:.8rem; }
+    .btn-topbar { color:#fff; font-size:.78rem; border:1px solid rgba(255,255,255,.4); border-radius:5px; padding:4px 10px; text-decoration:none; cursor:pointer; background:none; }
+    .btn-topbar:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .tabs { background:#fff; border-bottom:2px solid #e5e7eb; display:flex; padding:0 24px; }
+    .tab { padding:12px 20px; font-size:.9rem; font-weight:500; color:#666; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .15s; }
+    .tab:hover { color:#1a1a2e; }
+    .tab.active { color:#1a1a2e; border-bottom-color:#4f8ef7; }
+
+    .filter-bar { background:#fff; border-bottom:1px solid #eee; padding:10px 24px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .filter-label { font-size:.78rem; font-weight:600; color:#888; }
+    .btn-view { border:1px solid #d1d5db; border-radius:6px; padding:4px 14px; font-size:.82rem; cursor:pointer; background:#fff; color:#555; }
+    .btn-view.active { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+    .btn-csv { background:#e8f5e9; color:#2e7d32; border:none; border-radius:6px; padding:3px 10px; font-size:.75rem; font-weight:600; cursor:pointer; }
+    .btn-csv:hover { background:#c8e6c9; }
+
+    .main { padding:20px 24px; }
+    .card { border:none; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); background:#fff; margin-bottom:18px; overflow:hidden; }
+    .card-header-qt { padding:12px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #eee; }
+    .qt-title { font-weight:700; font-size:.95rem; color:#1a1a2e; }
+    .qt-prazo { font-size:.78rem; color:#888; }
+    .qt-prazo.urgente { color:#e53935; font-weight:600; }
+    .card-body-qt { padding:16px 18px; }
+
+    .iva-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:.88rem; }
+    .iva-row.indent { padding-left:20px; color:#666; font-size:.84rem; }
+    .iva-row.total-line { border-top:2px solid #eee; margin-top:8px; padding-top:10px; font-weight:700; font-size:.95rem; }
+    .iva-saldo-pagar { color:#fff; background:#e53935; border-radius:8px; padding:6px 16px; font-weight:700; font-size:.9rem; display:inline-block; }
+    .iva-saldo-recuperar { color:#fff; background:#2e7d32; border-radius:8px; padding:6px 16px; font-weight:700; font-size:.9rem; display:inline-block; }
+    .iva-saldo-zero { color:#888; background:#f0f0f0; border-radius:8px; padding:6px 16px; font-weight:600; font-size:.9rem; display:inline-block; }
+
+    table { font-size:.87rem; margin:0; width:100%; }
+    th { background:#1a1a2e; color:#fff; font-weight:500; padding:10px !important; white-space:nowrap; }
+    td { padding:9px 12px !important; vertical-align:middle !important; border-bottom:1px solid #f0f0f0; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#f8f9ff; }
+    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .pagar { color:#e53935; font-weight:600; }
+    .recuperar { color:#2e7d32; font-weight:600; }
+    .empty-state { text-align:center; padding:60px; color:#aaa; }
+    .secao-sep { border:none; border-top:1px dashed #ddd; margin:10px 0; }
+    .anno-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    @media (max-width:768px) { .anno-grid { grid-template-columns:1fr; } }
+
+    /* dark */
+    html.dark body { background:#111318; color:#e0e6f0; }
+    html.dark .tabs { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .tab { color:#8b9ab0; }
+    html.dark .tab:hover { color:#e0e6f0; }
+    html.dark .tab.active { color:#e0e6f0; }
+    html.dark .filter-bar { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .filter-label { color:#8b9ab0; }
+    html.dark .btn-view { background:#1e2130; color:#8b9ab0; border-color:#3a3d4e; }
+    html.dark .btn-view.active { background:#4f8ef7; color:#fff; border-color:#4f8ef7; }
+    html.dark .card { background:#1e2130; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    html.dark .card-header-qt { border-bottom-color:#2a2d3e; }
+    html.dark .qt-title { color:#e0e6f0; }
+    html.dark .qt-prazo { color:#5a6478; }
+    html.dark .iva-row.indent { color:#8b9ab0; }
+    html.dark .iva-row.total-line { border-top-color:#2a2d3e; }
+    html.dark .secao-sep { border-top-color:#2a2d3e; }
+    html.dark th { background:#0d0f1a; }
+    html.dark td { color:#e0e6f0; border-bottom-color:#252838; }
+    html.dark tr:hover td { background:#252838; }
+    html.dark .empty-state { color:#5a6478; }
+  </style>
+</head>
+<body>
+{% set active_tab = 'iva' %}
+{% include '_nav.html' %}
+
+<div class="filter-bar">
+  <span class="filter-label">Vista:</span>
+  <button class="btn-view" id="btnMensal"    onclick="setView('mensal')">Mensal</button>
+  <button class="btn-view active" id="btnTrimestral" onclick="setView('trimestral')">Trimestral</button>
+  <button class="btn-view" id="btnAnual"     onclick="setView('anual')">Anual</button>
+
+  <span class="filter-label" style="margin-left:16px">Ano:</span>
+  <select id="anoSel" onchange="render()">
+    <!-- preenchido por JS -->
+  </select>
+</div>
+
+<div class="main">
+  <div id="viewContainer"></div>
+</div>
+
+<script>
+const DADOS = {{ contab_json|safe }};
+const CFG   = {{ contab_config|tojson }};
+let currentView = 'trimestral';
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TRIMESTRES = [
+  {label:'Q1 (Jan–Mar)', meses:[1,2,3], prazo:'20 Maio'},
+  {label:'Q2 (Abr–Jun)', meses:[4,5,6], prazo:'20 Agosto'},
+  {label:'Q3 (Jul–Set)', meses:[7,8,9], prazo:'20 Novembro'},
+  {label:'Q4 (Out–Dez)', meses:[10,11,12], prazo:'20 Fevereiro (ano seguinte)'},
+];
+
+function fmt(v) {
+  return (v||0).toLocaleString('pt-PT',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function anos() {
+  const s = new Set(DADOS.map(d=>d.year));
+  const cur = new Date().getFullYear();
+  s.add(cur);
+  return [...s].sort((a,b)=>b-a);
+}
+
+function selectedAno() {
+  return parseInt(document.getElementById('anoSel').value||new Date().getFullYear());
+}
+
+function dadosMes(ano, mes) {
+  return DADOS.find(d=>d.year===ano && d.month===mes) || null;
+}
+
+function dadosTrimestre(ano, meses) {
+  return meses.map(m=>dadosMes(ano,m)).filter(Boolean);
+}
+
+function agregarRows(rows) {
+  const z = {rendimentos:0,iva_liquidado:0,gastos_despesas:0,gastos_km:0,
+              gastos_total:0,iva_deducivel:0,iva_deducivel_6:0,iva_deducivel_13:0,
+              iva_deducivel_23:0,iva_saldo:0,resultado:0};
+  for(const r of rows){
+    z.rendimentos      += r.rendimentos;
+    z.iva_liquidado    += r.iva_liquidado;
+    z.gastos_despesas  += r.gastos_despesas;
+    z.gastos_km        += r.gastos_km;
+    z.gastos_total     += r.gastos_total;
+    z.iva_deducivel    += r.iva_deducivel;
+    z.iva_deducivel_6  += r.iva_deducivel_6;
+    z.iva_deducivel_13 += r.iva_deducivel_13;
+    z.iva_deducivel_23 += r.iva_deducivel_23;
+    z.iva_saldo        += r.iva_saldo;
+    z.resultado        += r.resultado;
+  }
+  z.iva_saldo = Math.round((z.iva_liquidado - z.iva_deducivel)*100)/100;
+  return z;
+}
+
+function cardSaldo(saldo) {
+  if(saldo > 0.005)  return `<span class="iva-saldo-pagar">IVA a pagar: €${fmt(saldo)}</span>`;
+  if(saldo < -0.005) return `<span class="iva-saldo-recuperar">IVA a recuperar: €${fmt(-saldo)}</span>`;
+  return `<span class="iva-saldo-zero">IVA: €0,00</span>`;
+}
+
+function buildCardQt(titulo, prazoStr, r, ano, idPrefix) {
+  const prazoClass = prazoStr.toLowerCase().includes('urgente') ? 'urgente' : '';
+  let html = `
+  <div class="card">
+    <div class="card-header-qt">
+      <span class="qt-title">${titulo} ${ano}</span>
+      <span class="qt-prazo ${prazoClass}">Prazo DP IVA: ${prazoStr}</span>
+    </div>
+    <div class="card-body-qt">
+      <div class="iva-row"><span>IVA Liquidado (rendimentos)</span><span></span></div>
+      <div class="iva-row indent"><span>Base tributável (${CFG.taxa_iva_rendimentos}%):</span><span>€${fmt(r.rendimentos)}</span></div>
+      <div class="iva-row indent"><span>IVA liquidado:</span><span><strong>€${fmt(r.iva_liquidado)}</strong></span></div>
+      <hr class="secao-sep">
+      <div class="iva-row"><span>IVA Dedutível (despesas)</span><span></span></div>`;
+  if(r.iva_deducivel_6 > 0.005)
+    html += `<div class="iva-row indent"><span>IVA dedutível 6%:</span><span>€${fmt(r.iva_deducivel_6)}</span></div>`;
+  if(r.iva_deducivel_13 > 0.005)
+    html += `<div class="iva-row indent"><span>IVA dedutível 13%:</span><span>€${fmt(r.iva_deducivel_13)}</span></div>`;
+  if(r.iva_deducivel_23 > 0.005)
+    html += `<div class="iva-row indent"><span>IVA dedutível 23%:</span><span>€${fmt(r.iva_deducivel_23)}</span></div>`;
+  html += `<div class="iva-row indent"><span>Total dedutível:</span><span><strong>€${fmt(r.iva_deducivel)}</strong></span></div>
+      <div class="iva-row total-line"><span></span>${cardSaldo(r.iva_saldo)}</div>`;
+
+  // botão CSV
+  html += `<div style="margin-top:12px;text-align:right">
+    <button class="btn-csv" onclick="exportCsvQt('${idPrefix}','${titulo}',${ano})">⬇ CSV</button>
+  </div>`;
+  html += `</div></div>`;
+  return html;
+}
+
+function prazoQt(qt, ano) {
+  if(qt===3) return `20 Fevereiro ${ano+1}`;
+  return TRIMESTRES[qt].prazo + ` ${ano}`;
+}
+
+function renderTrimestral(ano) {
+  let html = '<div class="anno-grid">';
+  for(let i=0;i<4;i++){
+    const qt = TRIMESTRES[i];
+    const rows = dadosTrimestre(ano, qt.meses);
+    const r = agregarRows(rows);
+    const prazo = prazoQt(i, ano);
+    html += buildCardQt(qt.label, prazo, r, ano, `q${i+1}`);
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderMensal(ano) {
+  const rows = DADOS.filter(d=>d.year===ano).sort((a,b)=>a.month-b.month);
+  if(!rows.length) return `<div class="empty-state">Sem dados para ${ano}.<br>Sincronize o calendário e as despesas.</div>`;
+  let html = `<div class="card"><table>
+    <thead><tr>
+      <th>Mês</th><th class="num">Base Rend.</th><th class="num">IVA Liq.</th>
+      <th class="num">Base Desp.</th><th class="num">IVA 6%</th><th class="num">IVA 13%</th><th class="num">IVA 23%</th>
+      <th class="num">Total Ded.</th><th class="num">Saldo IVA</th>
+    </tr></thead><tbody>`;
+  let tot={rendimentos:0,iva_liquidado:0,gastos_despesas:0,iva_deducivel_6:0,iva_deducivel_13:0,iva_deducivel_23:0,iva_deducivel:0,iva_saldo:0};
+  for(const r of rows){
+    const cls = r.iva_saldo>0.005?'pagar':r.iva_saldo<-0.005?'recuperar':'';
+    html += `<tr><td>${MESES[r.month-1]}</td>
+      <td class="num">€${fmt(r.rendimentos)}</td>
+      <td class="num">€${fmt(r.iva_liquidado)}</td>
+      <td class="num">€${fmt(r.gastos_despesas)}</td>
+      <td class="num">€${fmt(r.iva_deducivel_6)}</td>
+      <td class="num">€${fmt(r.iva_deducivel_13)}</td>
+      <td class="num">€${fmt(r.iva_deducivel_23)}</td>
+      <td class="num">€${fmt(r.iva_deducivel)}</td>
+      <td class="num ${cls}">${r.iva_saldo>0.005?'':''}€${fmt(Math.abs(r.iva_saldo))}${r.iva_saldo<-0.005?' ↩':r.iva_saldo>0.005?' →':''}</td>
+    </tr>`;
+    Object.keys(tot).forEach(k=>{ tot[k]+=(r[k]||0); });
+  }
+  tot.iva_saldo=Math.round((tot.iva_liquidado-tot.iva_deducivel)*100)/100;
+  const tcls=tot.iva_saldo>0.005?'pagar':tot.iva_saldo<-0.005?'recuperar':'';
+  html+=`<tr style="font-weight:700;background:#f8faff"><td>Total</td>
+    <td class="num">€${fmt(tot.rendimentos)}</td>
+    <td class="num">€${fmt(tot.iva_liquidado)}</td>
+    <td class="num">€${fmt(tot.gastos_despesas)}</td>
+    <td class="num">€${fmt(tot.iva_deducivel_6)}</td>
+    <td class="num">€${fmt(tot.iva_deducivel_13)}</td>
+    <td class="num">€${fmt(tot.iva_deducivel_23)}</td>
+    <td class="num">€${fmt(tot.iva_deducivel)}</td>
+    <td class="num ${tcls}">€${fmt(Math.abs(tot.iva_saldo))}${tot.iva_saldo<-0.005?' ↩':tot.iva_saldo>0.005?' →':''}</td>
+  </tr>`;
+  html+=`</tbody></table></div>`;
+  html+=`<div style="text-align:right;margin-top:4px">
+    <button class="btn-csv" onclick="exportCsvMensal(${ano})">⬇ Exportar CSV</button></div>`;
+  return html;
+}
+
+function renderAnual(ano) {
+  let html = `<div class="card"><div style="padding:14px 18px;border-bottom:1px solid #eee;font-weight:700;font-size:.9rem;color:#1a1a2e">Resumo Anual ${ano}</div>
+  <table><thead><tr>
+    <th>Trimestre</th><th class="num">Base Rend.</th><th class="num">IVA Liq.</th>
+    <th class="num">Total Ded.</th><th class="num">Saldo IVA</th><th class="num">Prazo</th>
+  </tr></thead><tbody>`;
+  let tot={rendimentos:0,iva_liquidado:0,iva_deducivel:0,iva_saldo:0};
+  for(let i=0;i<4;i++){
+    const qt=TRIMESTRES[i];
+    const rows=dadosTrimestre(ano,qt.meses);
+    const r=agregarRows(rows);
+    const cls=r.iva_saldo>0.005?'pagar':r.iva_saldo<-0.005?'recuperar':'';
+    const prazo=prazoQt(i,ano);
+    html+=`<tr><td>${qt.label}</td>
+      <td class="num">€${fmt(r.rendimentos)}</td>
+      <td class="num">€${fmt(r.iva_liquidado)}</td>
+      <td class="num">€${fmt(r.iva_deducivel)}</td>
+      <td class="num ${cls}">€${fmt(Math.abs(r.iva_saldo))}${r.iva_saldo<-0.005?' ↩':r.iva_saldo>0.005?' →':''}</td>
+      <td>${prazo}</td>
+    </tr>`;
+    tot.rendimentos+=r.rendimentos;tot.iva_liquidado+=r.iva_liquidado;tot.iva_deducivel+=r.iva_deducivel;
+  }
+  tot.iva_saldo=Math.round((tot.iva_liquidado-tot.iva_deducivel)*100)/100;
+  const tcls=tot.iva_saldo>0.005?'pagar':tot.iva_saldo<-0.005?'recuperar':'';
+  html+=`<tr style="font-weight:700;background:#f8faff"><td>Total ${ano}</td>
+    <td class="num">€${fmt(tot.rendimentos)}</td>
+    <td class="num">€${fmt(tot.iva_liquidado)}</td>
+    <td class="num">€${fmt(tot.iva_deducivel)}</td>
+    <td class="num ${tcls}">€${fmt(Math.abs(tot.iva_saldo))}${tot.iva_saldo<-0.005?' ↩':tot.iva_saldo>0.005?' →':''}</td>
+    <td>—</td>
+  </tr></tbody></table></div>`;
+
+  // breakdown trimestral com cards
+  html += '<div class="anno-grid">';
+  for(let i=0;i<4;i++){
+    const qt=TRIMESTRES[i];
+    const rows=dadosTrimestre(ano,qt.meses);
+    const r=agregarRows(rows);
+    html+=buildCardQt(qt.label, prazoQt(i,ano), r, ano, `a${i+1}`);
+  }
+  html+='</div>';
+  return html;
+}
+
+function setView(v) {
+  currentView=v;
+  ['Mensal','Trimestral','Anual'].forEach(n=>{
+    document.getElementById('btn'+n).classList.toggle('active', n.toLowerCase()===v);
+  });
+  render();
+}
+
+function render() {
+  const ano=selectedAno();
+  const cont=document.getElementById('viewContainer');
+  if(currentView==='mensal')      cont.innerHTML=renderMensal(ano);
+  else if(currentView==='anual')  cont.innerHTML=renderAnual(ano);
+  else                             cont.innerHTML=renderTrimestral(ano);
+}
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+function bom(s){ return '\uFEFF'+s; }
+function eur(v){ return String((v||0).toFixed(2)).replace('.',','); }
+
+function exportCsvQt(prefix, titulo, ano) {
+  const idx = ['q1','q2','q3','q4','a1','a2','a3','a4'].indexOf(prefix);
+  const qtIdx = idx%4;
+  const qt=TRIMESTRES[qtIdx];
+  const rows=dadosTrimestre(ano,qt.meses);
+  const r=agregarRows(rows);
+  let csv=bom('Campo;Valor\n');
+  csv+=`Período;${titulo} ${ano}\n`;
+  csv+=`Prazo DP IVA;${prazoQt(qtIdx,ano)}\n`;
+  csv+=`Base tributável rendimentos;${eur(r.rendimentos)}\n`;
+  csv+=`IVA Liquidado (${CFG.taxa_iva_rendimentos}%);${eur(r.iva_liquidado)}\n`;
+  csv+=`IVA Dedutível 6%;${eur(r.iva_deducivel_6)}\n`;
+  csv+=`IVA Dedutível 13%;${eur(r.iva_deducivel_13)}\n`;
+  csv+=`IVA Dedutível 23%;${eur(r.iva_deducivel_23)}\n`;
+  csv+=`Total IVA Dedutível;${eur(r.iva_deducivel)}\n`;
+  csv+=`Saldo IVA (>0 pagar, <0 recuperar);${eur(r.iva_saldo)}\n`;
+  const fname=`iva_${titulo.replace(/[^a-zA-Z0-9]/g,'_')}_${ano}.csv`;
+  saveCSV(fname,csv);
+}
+
+function exportCsvMensal(ano) {
+  const rows=DADOS.filter(d=>d.year===ano).sort((a,b)=>a.month-b.month);
+  let csv=bom('Mês;Base Rendimentos;IVA Liquidado;Base Despesas;IVA Ded.6%;IVA Ded.13%;IVA Ded.23%;Total Dedutível;Saldo IVA\n');
+  for(const r of rows){
+    csv+=`${MESES[r.month-1]};${eur(r.rendimentos)};${eur(r.iva_liquidado)};${eur(r.gastos_despesas)};${eur(r.iva_deducivel_6)};${eur(r.iva_deducivel_13)};${eur(r.iva_deducivel_23)};${eur(r.iva_deducivel)};${eur(r.iva_saldo)}\n`;
+  }
+  saveCSV(`iva_mensal_${ano}.csv`,csv);
+}
+
+function saveCSV(fname,content){
+  fetch('/api/export_csv',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({filename:fname,content})})
+  .then(r=>r.json()).then(d=>{
+    if(d.ok) alert('Ficheiro guardado em:\n'+d.path);
+    else alert('Erro: '+d.error);
+  });
+}
+
+// ── init ─────────────────────────────────────────────────────────────────────
+(function(){
+  const sel=document.getElementById('anoSel');
+  const cur=new Date().getFullYear();
+  anos().forEach(a=>{
+    const o=document.createElement('option');
+    o.value=a; o.textContent=a;
+    if(a===cur) o.selected=true;
+    sel.appendChild(o);
+  });
+  render();
+})();
+</script>
+</body>
+</html>

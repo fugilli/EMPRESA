@@ -1,0 +1,27 @@
+# Credenciais e tokens — nunca versionar
+credentials.json
+token.pickle
+data/oauth_state.tmp
+data/secret_key
+
+# Dados pessoais e caches geradas em runtime
+data/concerts_base.json
+data/concert_data.json
+data/distances_cache.json
+data/deleted_events.json
+data/despesas.json
+data/config_contab.json
+data/config.json
+data/app.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
+
+# App bundle compilado
+*.app

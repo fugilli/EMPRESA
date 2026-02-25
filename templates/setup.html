@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Configuração – Gestão de Empresa</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f8f9fa; }
+    .card { max-width: 640px; margin: 80px auto; }
+    pre { background: #212529; color: #f8f9fa; border-radius: 6px; padding: 12px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="card shadow-sm p-4">
+    <h3 class="mb-3">Configuração inicial</h3>
+
+    {% if step == 'credentials' %}
+    <div class="alert alert-warning">
+      Ficheiro <strong>credentials.json</strong> não encontrado na pasta da app.
+    </div>
+
+    <p>Segue estes passos para obteres as credenciais do Google Calendar:</p>
+
+    <ol class="mb-3">
+      <li>Vai a <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></li>
+      <li>Cria um projeto novo (ou usa um existente)</li>
+      <li>Activa a <strong>Google Calendar API</strong>
+        <ul><li>Menu lateral → APIs e serviços → Biblioteca → pesquisa "Google Calendar API" → Ativar</li></ul>
+      </li>
+      <li>Cria credenciais OAuth 2.0
+        <ul>
+          <li>APIs e serviços → Credenciais → Criar credenciais → ID de cliente OAuth</li>
+          <li>Tipo de aplicação: <strong>Aplicação de computador</strong></li>
+          <li>Dá um nome (ex: "Gestão Empresa")</li>
+        </ul>
+      </li>
+      <li>Faz download do JSON e guarda-o como <code>credentials.json</code> dentro desta pasta:
+        <pre>/Users/gilfigueiredo/EMPRESA/credentials.json</pre>
+      </li>
+      <li>No ecrã de consentimento OAuth, adiciona o teu e-mail como utilizador de teste</li>
+      <li>Depois de guardares o ficheiro, <a href="/">recarrega esta página</a>.</li>
+    </ol>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

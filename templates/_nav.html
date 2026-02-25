@@ -1,0 +1,107 @@
+<div class="topbar">
+  <span class="brand">Gestão de Empresa</span>
+  <div class="topbar-right">
+    {% if calendar_name %}
+    <span class="badge-cal">{{ calendar_name }}</span>
+    {% endif %}
+    {% if last_sync %}
+    <span style="font-size:.72rem;color:rgba(255,255,255,.5)">{{ last_sync }}</span>
+    {% endif %}
+    <button class="btn-topbar" id="themeBtn" onclick="toggleTheme()" title="Alternar modo escuro/claro">🌙</button>
+    {% if active_tab in ['iva','conta_corrente','despesas'] %}
+    <button class="btn-topbar" id="syncDespesasBtn" onclick="doSyncDespesas()">↻ Sync Despesas</button>
+    {% if despesas_last_sync is defined and despesas_last_sync %}
+    <span style="font-size:.72rem;color:rgba(255,255,255,.5)">desp: {{ despesas_last_sync }}</span>
+    {% endif %}
+    {% endif %}
+    <button class="btn-topbar" id="syncBtn" onclick="doSync()">↻ Sincronizar</button>
+    {% if calendar_name %}
+    <a href="/change_calendar" class="btn-topbar">Mudar calendário</a>
+    {% endif %}
+  </div>
+</div>
+<div class="tabs">
+  <a href="/concerts"        class="tab{% if active_tab=='concerts'        %} active{% endif %}">Concertos</a>
+  <a href="/mapa_km"         class="tab{% if active_tab=='mapa_km'         %} active{% endif %}">Mapa KM</a>
+  <a href="/faturacao"       class="tab{% if active_tab=='faturacao'       %} active{% endif %}">Faturação</a>
+  <a href="/iva"             class="tab{% if active_tab=='iva'             %} active{% endif %}">IVA</a>
+  <a href="/conta_corrente"  class="tab{% if active_tab=='conta_corrente'  %} active{% endif %}">Conta Corrente</a>
+  <a href="/despesas"        class="tab{% if active_tab=='despesas'        %} active{% endif %}">Despesas</a>
+  <a href="/agencias"        class="tab{% if active_tab=='agencias'        %} active{% endif %}">Agências</a>
+  <a href="/conflitos"       class="tab{% if active_tab=='conflitos'       %} active{% endif %}">Conflitos <span id="conflictsBadge" style="display:none;background:#ef5350;color:#fff;border-radius:20px;padding:1px 8px;font-size:.72rem;font-weight:700;margin-left:4px;vertical-align:middle"></span></a>
+</div>
+
+<script>
+// ── tema ──────────────────────────────────────────────────────────────────────
+(function() {
+  const saved = localStorage.getItem('theme');
+  const dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) document.documentElement.classList.add('dark');
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = dark ? '☀' : '🌙';
+})();
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('themeBtn');
+  if (btn) btn.textContent = isDark ? '☀' : '🌙';
+}
+
+(function() {
+  fetch('/api/conflitos_count')
+    .then(r => r.json())
+    .then(d => {
+      if (d.count > 0) {
+        const badge = document.getElementById('conflictsBadge');
+        badge.textContent = d.count;
+        badge.style.display = '';
+      }
+    })
+    .catch(() => {});
+})();
+
+function doSync() {
+  const btn = document.getElementById('syncBtn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '↻ A sincronizar…';
+  fetch('/api/sync', {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        window.location.reload();
+      } else {
+        btn.disabled = false;
+        btn.textContent = '↻ Sincronizar';
+        alert('Erro ao sincronizar: ' + (d.error || 'desconhecido'));
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = '↻ Sincronizar';
+    });
+}
+
+function doSyncDespesas() {
+  const btn = document.getElementById('syncDespesasBtn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '↻ A sincronizar…';
+  fetch('/api/sync_despesas', {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        window.location.reload();
+      } else {
+        btn.disabled = false;
+        btn.textContent = '↻ Sync Despesas';
+        alert('Erro ao sincronizar despesas: ' + (d.error || 'desconhecido'));
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = '↻ Sync Despesas';
+    });
+}
+</script>

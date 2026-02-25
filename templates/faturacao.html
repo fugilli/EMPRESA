@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Faturação – Gestão de Empresa</title>
+  <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark');})()</script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f0f2f5; font-family:system-ui,sans-serif; margin:0; }
+    .topbar { background:#1a1a2e; color:#fff; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:52px; }
+    .brand { font-weight:600; font-size:1rem; }
+    .topbar-right { display:flex; align-items:center; gap:12px; }
+    .badge-cal { background:#4f8ef7; color:#fff; border-radius:20px; padding:3px 12px; font-size:.8rem; }
+    .btn-topbar { color:#fff; font-size:.78rem; border:1px solid rgba(255,255,255,.4); border-radius:5px; padding:4px 10px; text-decoration:none; cursor:pointer; background:none; }
+    .btn-topbar:hover { background:rgba(255,255,255,.1); color:#fff; }
+    .tabs { background:#fff; border-bottom:2px solid #e5e7eb; display:flex; padding:0 24px; }
+    .tab { padding:12px 20px; font-size:.9rem; font-weight:500; color:#666; text-decoration:none; border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .15s; }
+    .tab:hover { color:#1a1a2e; }
+    .tab.active { color:#1a1a2e; border-bottom-color:#4f8ef7; }
+
+    .filter-bar { background:#fff; border-bottom:1px solid #eee; padding:10px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+    .filter-bar select { border:1px solid #ddd; border-radius:6px; padding:5px 10px; font-size:.85rem; outline:none; cursor:pointer; }
+    .filter-bar select:focus { border-color:#4f8ef7; }
+    .filter-label { font-size:.78rem; font-weight:600; color:#888; }
+    .totals-bar { margin-left:auto; display:flex; gap:20px; flex-wrap:wrap; }
+    .total-item { font-size:.82rem; color:#555; }
+    .total-item strong { color:#1a1a2e; }
+
+    .main { padding:20px 24px; }
+    .card { border:none; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); overflow:hidden; margin-bottom:16px; }
+
+    table { font-size:.88rem; margin:0; width:100%; }
+    th { background:#1a1a2e; color:#fff; font-weight:500; padding:10px !important; white-space:nowrap; }
+    td { padding:9px 12px !important; vertical-align:middle !important; border-bottom:1px solid #f0f0f0; }
+    tr:last-child td { border-bottom:none; }
+    tr:hover td { background:#f8f9ff; }
+    .month-row { cursor:pointer; }
+    .month-row:hover td { background:#f0f4ff; }
+    .month-row.selected td { background:#e8f0ff; }
+
+    .badge-euro { border-radius:20px; padding:2px 10px; font-size:.82rem; font-weight:600; }
+    .badge-iva  { background:#fff3e0; color:#e65100; }
+    .badge-tot  { background:#e3f2fd; color:#1565c0; }
+    .badge-liq  { background:#f3f4f6; color:#333; }
+
+    .btn-csv { background:#e8f5e9; color:#2e7d32; border:none; border-radius:6px;
+               padding:3px 10px; font-size:.75rem; font-weight:600; cursor:pointer;
+               white-space:nowrap; }
+    .btn-csv:hover { background:#c8e6c9; }
+
+    .detail-card { display:none; }
+    .detail-card.visible { display:block; }
+    .detail-header { background:#f8f8f8; padding:10px 16px; font-size:.82rem; font-weight:600; color:#555; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+    table.detail-table td { padding:7px 12px !important; font-size:.85rem; }
+    table.detail-table th { padding:8px 12px !important; }
+
+    .info-bar { font-size:.78rem; color:#999; margin-top:10px; }
+    .empty-state { text-align:center; padding:60px; color:#aaa; }
+
+    /* ── dark mode ─────────────────────────────────────────────────────────── */
+    html.dark body { background:#111318; color:#e0e6f0; }
+    html.dark .tabs { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .tab { color:#8b9ab0; }
+    html.dark .tab:hover { color:#e0e6f0; }
+    html.dark .tab.active { color:#e0e6f0; }
+    html.dark .filter-bar { background:#161921; border-bottom-color:#2a2d3e; }
+    html.dark .filter-bar select { background:#1e2130; color:#e0e6f0; border-color:#3a3d4e; }
+    html.dark .filter-label { color:#8b9ab0; }
+    html.dark .total-item { color:#8b9ab0; }
+    html.dark .total-item strong { color:#e0e6f0; }
+    html.dark .card { background:#1e2130; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+    html.dark th { background:#0d0f1a; }
+    html.dark td { color:#e0e6f0; border-bottom-color:#252838; }
+    html.dark tr:hover td { background:#252838; }
+    html.dark .info-bar { color:#5a6478; }
+    html.dark .empty-state { color:#5a6478; }
+    html.dark .month-row:hover td { background:#1e2845; }
+    html.dark .month-row.selected td { background:#1e2845; }
+    html.dark .detail-header { background:#161921; color:#8b9ab0; border-bottom-color:#2a2d3e; }
+  </style>
+</head>
+<body>
+{% set active_tab = 'faturacao' %}
+{% include '_nav.html' %}
+
+<div class="filter-bar">
+  <span class="filter-label">Ano</span>
+  <select id="yearSel" onchange="applyFilter()"><option value="">Todos</option></select>
+  <span class="filter-label">Mês</span>
+  <select id="monthSel" onchange="applyFilter()">
+    <option value="">Todos</option>
+    <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+    <option value="3">Março</option><option value="4">Abril</option>
+    <option value="5">Maio</option><option value="6">Junho</option>
+    <option value="7">Julho</option><option value="8">Agosto</option>
+    <option value="9">Setembro</option><option value="10">Outubro</option>
+    <option value="11">Novembro</option><option value="12">Dezembro</option>
+  </select>
+  <div class="totals-bar">
+    <div class="total-item">Sem IVA: <strong id="tLiq">—</strong></div>
+    <div class="total-item">IVA 23%: <strong id="tIva">—</strong></div>
+    <div class="total-item">Total c/ IVA: <strong id="tTotal">—</strong></div>
+    <div class="total-item" id="tAnnualWrap" style="display:none">Anual c/ IVA: <strong id="tAnnual">—</strong></div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- tabela mensal -->
+  <div class="card" id="monthlyCard">
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th style="text-align:right">Cachet líquido (€)</th>
+            <th style="text-align:right">IVA 23% (€)</th>
+            <th style="text-align:right">Total c/ IVA (€)</th>
+            <th>Concertos</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody id="monthlyBody"></tbody>
+      </table>
+      <div id="emptyMonthly" class="empty-state" style="display:none">
+        Nenhum concerto com cachet neste período.
+      </div>
+    </div>
+  </div>
+
+  <!-- detalhe de um mês específico -->
+  <div class="card detail-card" id="detailCard">
+    <div class="detail-header">
+      <span id="detailHeader"></span>
+      <button class="btn-csv" id="detailCsvBtn" onclick="exportDetailCSV()">⬇ Exportar CSV</button>
+    </div>
+    <div class="table-responsive">
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>Data</th><th>Artista</th><th>Evento</th><th>Local</th>
+            <th style="text-align:right">Cachet líquido (€)</th>
+            <th style="text-align:right">IVA 23% (€)</th>
+            <th style="text-align:right">Total c/ IVA (€)</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="info-bar">Clica numa linha para ver o detalhe · IVA calculado a 23% · ⬇ para exportar CSV do mês</p>
+</div>
+
+<script>
+const DATA   = {{ concerts_json | safe }};
+const IVA    = 0.23;
+const MONTHS = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const fmt    = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtE   = n => '€' + fmt(n);
+const fmtCSV = n => Number(n).toFixed(2).replace('.', ',');  // vírgula para Excel PT
+
+// só registos com cachet
+const rows = DATA.filter(d => d.cachet !== '' && parseFloat(d.cachet) > 0);
+
+const years = [...new Set(rows.map(d=>d.year).filter(y=>y>0))].sort();
+const ySel  = document.getElementById('yearSel');
+years.forEach(y => { const o=document.createElement('option'); o.value=o.textContent=y; ySel.appendChild(o); });
+const curYear = new Date().getFullYear();
+if (years.includes(curYear)) ySel.value = curYear;
+
+// guarda itens do mês aberto para exportação
+let currentDetailItems = [];
+let currentDetailLabel = '';
+
+function applyFilter() {
+  const year  = parseInt(ySel.value) || 0;
+  const month = parseInt(document.getElementById('monthSel').value) || 0;
+
+  const visible = rows.filter(d => (!year||d.year===year) && (!month||d.month===month));
+  const forYear = rows.filter(d => !year || d.year===year);
+
+  const byMonth = {};
+  visible.forEach(d => {
+    const key = `${d.year}-${String(d.month).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = {year:d.year, month:d.month, items:[]};
+    byMonth[key].items.push(d);
+  });
+
+  const monthKeys = Object.keys(byMonth).sort();
+  let totalLiq=0, totalAnualLiq=0;
+
+  const tbody = document.getElementById('monthlyBody');
+  tbody.innerHTML = monthKeys.map(key => {
+    const grp   = byMonth[key];
+    const liq   = grp.items.reduce((s,d)=>s+parseFloat(d.cachet),0);
+    const iva   = liq * IVA;
+    const tot   = liq + iva;
+    totalLiq   += liq;
+    const label = `${MONTHS[grp.month]} ${grp.year}`;
+    return `<tr class="month-row" data-key="${key}" onclick="toggleDetail('${key}')">
+      <td><strong>${label}</strong></td>
+      <td style="text-align:right"><span class="badge-euro badge-liq">${fmtE(liq)}</span></td>
+      <td style="text-align:right"><span class="badge-euro badge-iva">${fmtE(iva)}</span></td>
+      <td style="text-align:right"><span class="badge-euro badge-tot">${fmtE(tot)}</span></td>
+      <td style="color:#888">${grp.items.length}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn-csv" onclick="exportMonthCSV('${key}')">⬇ CSV</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  forYear.forEach(d => { totalAnualLiq += parseFloat(d.cachet||0); });
+
+  document.getElementById('emptyMonthly').style.display = monthKeys.length ? 'none' : 'block';
+  document.getElementById('tLiq').textContent   = fmtE(totalLiq);
+  document.getElementById('tIva').textContent   = fmtE(totalLiq * IVA);
+  document.getElementById('tTotal').textContent = fmtE(totalLiq * (1 + IVA));
+  const showAnnual = month > 0 && year > 0;
+  document.getElementById('tAnnualWrap').style.display = showAnnual ? '' : 'none';
+  document.getElementById('tAnnual').textContent = fmtE(totalAnualLiq * (1 + IVA));
+
+  document.getElementById('detailCard').classList.remove('visible');
+  document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
+}
+
+function toggleDetail(key) {
+  const monthRows = document.querySelectorAll(`.month-row[data-key="${key}"]`);
+  const card      = document.getElementById('detailCard');
+  const isOpen    = monthRows[0]?.classList.contains('selected');
+
+  document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
+  card.classList.remove('visible');
+  if (isOpen) return;
+
+  monthRows.forEach(r => r.classList.add('selected'));
+
+  const [y, m]   = key.split('-').map(Number);
+  const year     = parseInt(ySel.value) || 0;
+  const month    = parseInt(document.getElementById('monthSel').value) || 0;
+  const items    = rows.filter(d => d.year===y && d.month===m &&
+                               (!year||d.year===year) && (!month||d.month===month));
+
+  currentDetailItems = items;
+  currentDetailLabel = `${MONTHS[m]}_${y}`;
+
+  document.getElementById('detailHeader').textContent =
+    `Detalhe — ${MONTHS[m]} ${y} (${items.length} concerto(s))`;
+
+  document.getElementById('detailBody').innerHTML = items.map(d => {
+    const liq = parseFloat(d.cachet) || 0;
+    const iva = liq * IVA;
+    return `<tr>
+      <td><strong>${esc(d.date)}</strong></td>
+      <td>${esc(d.artista)}</td>
+      <td>${esc(d.evento)}</td>
+      <td>${esc(d.local)}</td>
+      <td style="text-align:right">${fmtE(liq)}</td>
+      <td style="text-align:right;color:#e65100">${fmtE(iva)}</td>
+      <td style="text-align:right"><strong>${fmtE(liq+iva)}</strong></td>
+    </tr>`;
+  }).join('');
+
+  card.classList.add('visible');
+}
+
+// ── exportação CSV ────────────────────────────────────────────────────────────
+
+function buildCSV(items, label) {
+  const BOM = '\uFEFF';  // BOM para Excel reconhecer UTF-8
+  const sep = ';';
+  const lines = [
+    ['Data', 'Artista', 'Evento', 'Local', 'Cachet líquido (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep)
+  ];
+
+  let totalLiq = 0;
+  for (const d of items) {
+    const liq = parseFloat(d.cachet) || 0;
+    const iva = liq * IVA;
+    totalLiq += liq;
+    lines.push([
+      d.date,
+      csvCell(d.artista),
+      csvCell(d.evento),
+      csvCell(d.local),
+      fmtCSV(liq),
+      fmtCSV(iva),
+      fmtCSV(liq + iva)
+    ].join(sep));
+  }
+
+  // linha de totais
+  lines.push([
+    'TOTAL', '', '', '',
+    fmtCSV(totalLiq),
+    fmtCSV(totalLiq * IVA),
+    fmtCSV(totalLiq * (1 + IVA))
+  ].join(sep));
+
+  return BOM + lines.join('\r\n');
+}
+
+function downloadCSV(csv, filename) {
+  fetch('/api/export_csv', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({filename, content: csv})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      alert('Ficheiro guardado em:\n~/Downloads/' + filename);
+    } else {
+      alert('Erro ao exportar: ' + (d.error || 'desconhecido'));
+    }
+  }).catch(() => alert('Erro ao exportar o ficheiro.'));
+}
+
+function exportMonthCSV(key) {
+  const [y, m] = key.split('-').map(Number);
+  const year   = parseInt(ySel.value) || 0;
+  const month  = parseInt(document.getElementById('monthSel').value) || 0;
+  const items  = rows.filter(d => d.year===y && d.month===m &&
+                              (!year||d.year===year) && (!month||d.month===month));
+  const label  = `${MONTHS[m]}_${y}`;
+  downloadCSV(buildCSV(items, label), `faturacao_${label}.csv`);
+}
+
+function exportDetailCSV() {
+  downloadCSV(buildCSV(currentDetailItems, currentDetailLabel),
+              `faturacao_${currentDetailLabel}.csv`);
+}
+
+function csvCell(s) {
+  s = String(s || '');
+  if (s.includes(';') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+applyFilter();
+</script>
+</body>
+</html>
