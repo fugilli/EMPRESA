@@ -59,6 +59,7 @@ EMPRESA/
     ├── config.json               # calendar_id e calendar_name
     ├── config_contab.json        # Configuração fiscal (taxas IRC, IVA, service account)
     ├── despesas.json             # Cache local das despesas do Google Sheets
+    ├── despesas_overrides.json   # Overrides de categoria por despesa (não sobrescrito pelo sync)
     ├── secret_key                # Chave secreta Flask (binário)
     ├── app.log                   # Log de erros
     └── oauth_state.tmp           # Estado OAuth temporário (apagado após auth)
@@ -147,6 +148,15 @@ Configuração fiscal, criada automaticamente na primeira chamada a `_get_contab
 ```
 Editável via modal ⚙ na tab Conta Corrente (guardado por `PUT /api/contab_config`).
 
+### `data/despesas_overrides.json`
+Overrides de categoria do utilizador, indexados por chave composta `data_fatura|fornecedor|numero_fatura`. Sobrepõe-se ao valor `tipo_despesa` vindo do Sheets antes de `_enrich_despesas`.
+```json
+{
+  "2025-01-15|EDP|FT 2025/1234": "Electricidade e Energia",
+  "2025-02-01|NOS|FR 2025/0089": "Telecomunicações"
+}
+```
+
 ### `data/despesas.json`
 Cache local das despesas do Google Sheets. Populado pelo botão "↻ Sync Despesas".
 ```json
@@ -211,6 +221,24 @@ Cache local das despesas do Google Sheets. Populado pelo botão "↻ Sync Despes
 | Manutenção e Reparação | 624 | 100% | Não |
 | Rendas e Alugueres | 6299 | 100% | Não |
 | Outros | 628 | 100% | Não |
+
+### Edição de categoria na tab Despesas
+
+Na vista "Lista detalhada" da tab Despesas, a coluna **Categoria** é um dropdown editável com as 18 categorias da app. Ao alterar a categoria de uma despesa:
+
+1. O novo valor é guardado em `data/despesas_overrides.json` (chave = `data_fatura|fornecedor|numero_fatura`)
+2. A página recarrega — a despesa éreenriquecida com a nova conta SNC, factor IVA, tributação autónoma, etc.
+
+Os overrides persistem entre syncs: o ficheiro `despesas_overrides.json` é independente de `despesas.json` e nunca é sobrescrito pela sincronização do Sheets.
+
+### Dropdown de categoria no Google Sheets
+
+O botão **"⚙ Dropdown Sheets"** (tab Despesas, filter bar) configura validação de dados nativa na coluna "Tipo Despesa" do spreadsheet de faturas. Operação única — não precisa de ser repetida a cada sync.
+
+- Detecta o índice da coluna "Tipo Despesa" dinamicamente pelo cabeçalho
+- Aplica `setDataValidation` (tipo `ONE_OF_LIST`) via Google Sheets API (`spreadsheet.batch_update`)
+- `strict: false` — células com texto livre pré-existente não são invalidadas
+- Requer que a service account tenha permissão de **Editor** no spreadsheet
 
 ### Sync de despesas (`/api/sync_despesas`)
 
@@ -306,6 +334,8 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 |---|---|---|
 | `/api/sync` | POST | Sync com Google Calendar + pré-aquece distâncias |
 | `/api/sync_despesas` | POST | Sync despesas do Google Sheets → `despesas.json` |
+| `/api/despesas/set_categoria` | POST | Guarda override de categoria para uma despesa |
+| `/api/despesas/setup_sheets_dropdown` | POST | Configura dropdown de categoria na coluna "Tipo Despesa" do Google Sheets |
 | `/api/contabilidade` | GET | Dados contabilísticos consolidados (JSON) |
 | `/api/contab_config` | GET | Lê configuração fiscal |
 | `/api/contab_config` | PUT | Guarda configuração fiscal |

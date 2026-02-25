@@ -44,6 +44,7 @@ AGENCIES_FILE        = 'data/agencies.json'
 OAUTH_STATE_FILE     = 'data/oauth_state.tmp'
 DELETED_EVENTS_FILE  = 'data/deleted_events.json'
 DESPESAS_FILE        = 'data/despesas.json'
+DESPESAS_OVERRIDES_FILE = 'data/despesas_overrides.json'
 CONTAB_CONFIG_FILE   = 'data/config_contab.json'
 ORIGIN               = "Rua de Macau, Coimbra, Portugal"
 APP_HOST             = '127.0.0.1'
@@ -826,6 +827,15 @@ _SNC_MAP = {
 }
 
 
+def _despesa_key(row):
+    """Chave única para uma linha de despesa (usada para overrides de categoria)."""
+    return '|'.join([
+        str(row.get('data_fatura', '')),
+        str(row.get('fornecedor', '')),
+        str(row.get('numero_fatura', '')),
+    ])
+
+
 def _enrich_despesas(rows):
     """Enriquece cada linha de despesa com classificação SNC e cálculos fiscais."""
     result = []
@@ -842,6 +852,7 @@ def _enrich_despesas(rows):
         snc_conta, snc_desc = _SNC_MAP.get(cat, ('628', 'Outros FSE'))
         r = dict(row)
         r.update({
+            '_key':                    _despesa_key(row),
             'snc_conta':               snc_conta,
             'snc_descricao':           snc_desc,
             'iva_fator':               fator,
@@ -1150,7 +1161,13 @@ def despesas_page():
             return redirect(url_for('choose_calendar'))
         cal_name, last_sync = _page_context()
         despesas_data = load_json(DESPESAS_FILE, {'rows': [], 'last_sync': ''})
-        rows = _enrich_despesas(despesas_data.get('rows', []))
+        overrides = load_json(DESPESAS_OVERRIDES_FILE, {})
+        raw_rows = despesas_data.get('rows', [])
+        for r in raw_rows:
+            k = _despesa_key(r)
+            if k in overrides:
+                r['tipo_despesa'] = overrides[k]
+        rows = _enrich_despesas(raw_rows)
         return render_template('despesas.html',
                                despesas_json=json.dumps(rows),
                                despesas_last_sync=despesas_data.get('last_sync', ''),
@@ -1160,6 +1177,83 @@ def despesas_page():
         tb = traceback.format_exc()
         logging.error('ERRO em /despesas:\n' + tb)
         return render_template('error.html', error=str(e), detail=tb), 500
+
+
+@app.route('/api/despesas/set_categoria', methods=['POST'])
+def api_despesas_set_categoria():
+    try:
+        data      = request.get_json()
+        key       = (data.get('key') or '').strip()
+        categoria = (data.get('categoria') or '').strip()
+        if not key or not categoria:
+            return jsonify({'ok': False, 'error': 'key e categoria são obrigatórios'})
+        if categoria not in _SNC_MAP:
+            return jsonify({'ok': False, 'error': 'Categoria inválida'})
+        overrides = load_json(DESPESAS_OVERRIDES_FILE, {})
+        overrides[key] = categoria
+        save_json(DESPESAS_OVERRIDES_FILE, overrides)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+
+@app.route('/api/despesas/setup_sheets_dropdown', methods=['POST'])
+def api_setup_sheets_dropdown():
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials as SACredentials
+
+        cfg     = _get_contab_config()
+        sa_path = cfg.get('service_account_path', '')
+        sheet_id  = cfg.get('sheet_id', '')
+        sheet_name = cfg.get('sheet_name', 'Faturas')
+
+        if not sa_path or not sheet_id:
+            return jsonify({'ok': False, 'error': 'Configure o service account e Sheet ID primeiro (tab Conta Corrente → ⚙)'})
+        if not os.path.exists(sa_path):
+            return jsonify({'ok': False, 'error': f'Service account não encontrado: {sa_path}'})
+
+        creds = SACredentials.from_service_account_file(
+            sa_path,
+            scopes=['https://www.googleapis.com/auth/spreadsheets']
+        )
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(sheet_id)
+        ws = spreadsheet.worksheet(sheet_name)
+
+        # detecta índice da coluna "Tipo Despesa" no cabeçalho
+        headers = ws.row_values(1)
+        if 'Tipo Despesa' not in headers:
+            return jsonify({'ok': False, 'error': 'Coluna "Tipo Despesa" não encontrada no sheet'})
+        col_idx = headers.index('Tipo Despesa')   # 0-based
+
+        categorias = list(_SNC_MAP.keys())
+        body = {
+            'requests': [{
+                'setDataValidation': {
+                    'range': {
+                        'sheetId':           ws.id,
+                        'startRowIndex':     1,          # salta o cabeçalho
+                        'startColumnIndex':  col_idx,
+                        'endColumnIndex':    col_idx + 1,
+                    },
+                    'rule': {
+                        'condition': {
+                            'type':   'ONE_OF_LIST',
+                            'values': [{'userEnteredValue': c} for c in categorias],
+                        },
+                        'showCustomUi': True,
+                        'strict':       False,
+                    },
+                }
+            }]
+        }
+        spreadsheet.batch_update(body)
+        return jsonify({'ok': True, 'message': f'Dropdown configurado ({len(categorias)} categorias)'})
+
+    except Exception as e:
+        logging.error('ERRO em /api/despesas/setup_sheets_dropdown:\n' + traceback.format_exc())
+        return jsonify({'ok': False, 'error': str(e)})
 
 
 @app.route('/api/contabilidade')

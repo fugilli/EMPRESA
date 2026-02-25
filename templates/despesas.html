@@ -108,6 +108,10 @@
     html.dark .num-nded { color:#ff6e6e !important; }
     html.dark .num-ta   { color:#ffb74d !important; }
     html.dark tfoot tr  { background:#1a1d2e !important; }
+
+    select.cat-sel { border:1px solid #d1d5db; border-radius:5px; padding:2px 6px; font-size:.78rem; background:#fff; color:#333; cursor:pointer; max-width:200px; }
+    select.cat-sel:focus { outline:none; border-color:#4f8ef7; }
+    html.dark select.cat-sel { background:#1e2130; color:#e0e6f0; border-color:#3a3d4e; }
   </style>
 </head>
 <body>
@@ -138,7 +142,8 @@
     <option value="">Todas</option>
   </select>
 
-  <div style="margin-left:auto">
+  <div style="margin-left:auto; display:flex; gap:8px; align-items:center">
+    <button class="btn-csv" id="btnSetupSheets" onclick="setupSheetsDropdown()" title="Configura dropdown de categoria directamente no Google Sheets">⚙ Dropdown Sheets</button>
     <button class="btn-csv" onclick="exportarCSV()">⬇ Exportar CSV</button>
   </div>
 </div>
@@ -154,6 +159,15 @@ const ALL_ROWS = {{ despesas_json | safe }};
 
 const MESES_PT = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const CATEGORIAS = [
+  'Telecomunicações','Electricidade e Energia','Água e Saneamento',
+  'Combustíveis e Lubrificantes','Material de Escritório',
+  'Alimentação e Bebidas','Alojamento e Hotelaria','Transportes e Deslocações',
+  'Software e Tecnologia','Publicidade e Marketing','Seguros',
+  'Contabilidade e Consultoria','Serviços Jurídicos','Saúde e Bem-estar',
+  'Formação e Educação','Manutenção e Reparação','Rendas e Alugueres','Outros',
+];
 
 const IVA_FACTOR_LABEL = {
   'Alimentação e Bebidas':        '0% IVA ded. (art.21.º CIVA)',
@@ -278,16 +292,18 @@ function renderLista(rows) {
     const isRep     = r.is_representacao;
     const ivaFactor = r.iva_fator;
 
-    const catBadge  = IVA_FACTOR_LABEL[r.tipo_despesa]
-      ? ` <span class="badge-iva-lim">${IVA_FACTOR_LABEL[r.tipo_despesa]}</span>` : '';
     const repBadge  = isRep ? ' <span class="badge-rep">repr.</span>' : '';
+    const catOpts   = CATEGORIAS.map(c =>
+      `<option value="${esc(c)}"${c === (r.tipo_despesa||'Outros') ? ' selected' : ''}>${esc(c)}</option>`
+    ).join('');
+    const catKey    = esc(r._key || '');
 
     html += `<tr>
       <td class="mono">${dataFmt}</td>
       <td>${esc(r.fornecedor||'')}</td>
       <td class="mono">${esc(r.nif||'')}</td>
       <td class="mono">${esc(r.numero_fatura||'')}</td>
-      <td>${esc(r.tipo_despesa||'Outros')}${catBadge}${repBadge}</td>
+      <td><select class="cat-sel" data-key="${catKey}" onchange="saveCategoria(this)">${catOpts}</select>${repBadge}</td>
       <td><span class="mono" style="font-weight:600">${esc(r.snc_conta||'')}</span> <span style="font-size:.75rem;color:#888">${esc(r.snc_descricao||'')}</span></td>
       <td class="num">${fmtN(r.base_tributavel)}</td>
       <td class="num">${fmtN(ivaBruto)}</td>
@@ -457,6 +473,39 @@ function exportarCSV() {
     if (d.ok) alert('CSV guardado em ' + d.path);
     else alert('Erro: ' + (d.error||'desconhecido'));
   }).catch(()=>alert('Erro ao exportar CSV.'));
+}
+
+// ── configurar dropdown no Sheets ─────────────────────────────────────────────
+function setupSheetsDropdown() {
+  const btn = document.getElementById('btnSetupSheets');
+  btn.disabled = true;
+  btn.textContent = '⏳ A configurar…';
+  fetch('/api/despesas/setup_sheets_dropdown', {method: 'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) alert('✓ ' + d.message + '\n\nA coluna "Tipo Despesa" no Google Sheets tem agora um dropdown com todas as categorias.');
+      else alert('Erro: ' + (d.error || 'desconhecido'));
+    })
+    .catch(() => alert('Erro de rede.'))
+    .finally(() => { btn.disabled = false; btn.textContent = '⚙ Dropdown Sheets'; });
+}
+
+// ── edição de categoria ───────────────────────────────────────────────────────
+function saveCategoria(sel) {
+  const key = sel.dataset.key;
+  const categoria = sel.value;
+  sel.disabled = true;
+  fetch('/api/despesas/set_categoria', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({key, categoria})
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) location.reload();
+    else { alert('Erro ao guardar categoria: ' + (d.error||'desconhecido')); sel.disabled = false; }
+  })
+  .catch(() => { alert('Erro de rede ao guardar categoria.'); sel.disabled = false; });
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
