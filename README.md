@@ -504,3 +504,4 @@ gspread>=5.0.0
 | .app não abre (Gatekeeper) | App não assinada | Botão direito → Abrir; ou `xattr -cr app.app` |
 | Valores decimais multiplicados por 100 no sync | gspread 6.x trata vírgulas como separadores de milhar: `"0,55"` → `55` | `get_all_records(value_render_option='UNFORMATTED_VALUE')` |
 | Datas aparecem como números no sync | `UNFORMATTED_VALUE` devolve datas como números de série do Sheets | `_sheets_date()` converte serial → `YYYY-MM-DD` via época 30/12/1899 |
+| "Internal Server Error" ao arrancar | Token OAuth expirado/revogado pelo Google (`invalid_grant`) — ocorre quando a app está em modo "teste" na Cloud Console e passaram 7 dias sem uso | `get_credentials()` apanha a excepção, apaga `token.pickle` automaticamente e redireciona para `/auth` |

@@ -112,10 +112,14 @@ def get_credentials():
         if creds and creds.valid:
             return creds
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            with open(TOKEN_FILE, 'wb') as f:
-                pickle.dump(creds, f)
-            return creds
+            try:
+                creds.refresh(Request())
+                with open(TOKEN_FILE, 'wb') as f:
+                    pickle.dump(creds, f)
+                return creds
+            except Exception:
+                logging.warning('Token refresh failed — apagando token.pickle e pedindo re-autenticação')
+                os.remove(TOKEN_FILE)
     return None
 
 def save_credentials(creds):
