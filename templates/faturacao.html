@@ -97,7 +97,7 @@
     <option value="11">Novembro</option><option value="12">Dezembro</option>
   </select>
   <div class="totals-bar">
-    <div class="total-item">Sem IVA: <strong id="tLiq">—</strong></div>
+    <div class="total-item">Base (s/ IVA): <strong id="tLiq">—</strong></div>
     <div class="total-item">IVA 23%: <strong id="tIva">—</strong></div>
     <div class="total-item">Total c/ IVA: <strong id="tTotal">—</strong></div>
     <div class="total-item" id="tAnnualWrap" style="display:none">Anual c/ IVA: <strong id="tAnnual">—</strong></div>
@@ -112,7 +112,7 @@
         <thead>
           <tr>
             <th>Mês</th>
-            <th style="text-align:right">Cachet líquido (€)</th>
+            <th style="text-align:right">Base s/ IVA (€)</th>
             <th style="text-align:right">IVA 23% (€)</th>
             <th style="text-align:right">Total c/ IVA (€)</th>
             <th>Concertos</th>
@@ -138,7 +138,9 @@
         <thead>
           <tr>
             <th>Data</th><th>Artista</th><th>Evento</th><th>Local</th>
-            <th style="text-align:right">Cachet líquido (€)</th>
+            <th style="text-align:right">Cachet (€)</th>
+            <th style="text-align:right">KM (€)</th>
+            <th style="text-align:right">Base s/ IVA (€)</th>
             <th style="text-align:right">IVA 23% (€)</th>
             <th style="text-align:right">Total c/ IVA (€)</th>
           </tr>
@@ -159,8 +161,8 @@ const fmt    = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, 
 const fmtE   = n => '€' + fmt(n);
 const fmtCSV = n => Number(n).toFixed(2).replace('.', ',');  // vírgula para Excel PT
 
-// só registos com cachet
-const rows = DATA.filter(d => d.cachet !== '' && parseFloat(d.cachet) > 0);
+// registos com cachet > 0 OU com km a cobrar
+const rows = DATA.filter(d => (d.cachet !== '' && parseFloat(d.cachet) > 0) || d.km_euros > 0);
 
 const years = [...new Set(rows.map(d=>d.year).filter(y=>y>0))].sort();
 const ySel  = document.getElementById('yearSel');
@@ -187,19 +189,19 @@ function applyFilter() {
   });
 
   const monthKeys = Object.keys(byMonth).sort();
-  let totalLiq=0, totalAnualLiq=0;
+  let totalBase=0, totalAnualBase=0;
 
   const tbody = document.getElementById('monthlyBody');
   tbody.innerHTML = monthKeys.map(key => {
     const grp   = byMonth[key];
-    const liq   = grp.items.reduce((s,d)=>s+parseFloat(d.cachet),0);
-    const iva   = liq * IVA;
-    const tot   = liq + iva;
-    totalLiq   += liq;
+    const base  = grp.items.reduce((s,d)=>s+parseFloat(d.cachet||0)+(d.km_euros||0),0);
+    const iva   = base * IVA;
+    const tot   = base + iva;
+    totalBase  += base;
     const label = `${MONTHS[grp.month]} ${grp.year}`;
     return `<tr class="month-row" data-key="${key}" onclick="toggleDetail('${key}')">
       <td><strong>${label}</strong></td>
-      <td style="text-align:right"><span class="badge-euro badge-liq">${fmtE(liq)}</span></td>
+      <td style="text-align:right"><span class="badge-euro badge-liq">${fmtE(base)}</span></td>
       <td style="text-align:right"><span class="badge-euro badge-iva">${fmtE(iva)}</span></td>
       <td style="text-align:right"><span class="badge-euro badge-tot">${fmtE(tot)}</span></td>
       <td style="color:#888">${grp.items.length}</td>
@@ -209,15 +211,15 @@ function applyFilter() {
     </tr>`;
   }).join('');
 
-  forYear.forEach(d => { totalAnualLiq += parseFloat(d.cachet||0); });
+  forYear.forEach(d => { totalAnualBase += parseFloat(d.cachet||0) + (d.km_euros||0); });
 
   document.getElementById('emptyMonthly').style.display = monthKeys.length ? 'none' : 'block';
-  document.getElementById('tLiq').textContent   = fmtE(totalLiq);
-  document.getElementById('tIva').textContent   = fmtE(totalLiq * IVA);
-  document.getElementById('tTotal').textContent = fmtE(totalLiq * (1 + IVA));
+  document.getElementById('tLiq').textContent   = fmtE(totalBase);
+  document.getElementById('tIva').textContent   = fmtE(totalBase * IVA);
+  document.getElementById('tTotal').textContent = fmtE(totalBase * (1 + IVA));
   const showAnnual = month > 0 && year > 0;
   document.getElementById('tAnnualWrap').style.display = showAnnual ? '' : 'none';
-  document.getElementById('tAnnual').textContent = fmtE(totalAnualLiq * (1 + IVA));
+  document.getElementById('tAnnual').textContent = fmtE(totalAnualBase * (1 + IVA));
 
   document.getElementById('detailCard').classList.remove('visible');
   document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
@@ -247,16 +249,20 @@ function toggleDetail(key) {
     `Detalhe — ${MONTHS[m]} ${y} (${items.length} concerto(s))`;
 
   document.getElementById('detailBody').innerHTML = items.map(d => {
-    const liq = parseFloat(d.cachet) || 0;
-    const iva = liq * IVA;
+    const cachet = parseFloat(d.cachet) || 0;
+    const km     = d.km_euros || 0;
+    const base   = cachet + km;
+    const iva    = base * IVA;
     return `<tr>
       <td><strong>${esc(d.date)}</strong></td>
       <td>${esc(d.artista)}</td>
       <td>${esc(d.evento)}</td>
       <td>${esc(d.local)}</td>
-      <td style="text-align:right">${fmtE(liq)}</td>
+      <td style="text-align:right">${fmtE(cachet)}</td>
+      <td style="text-align:right;color:#1565c0">${km > 0 ? fmtE(km) : '—'}</td>
+      <td style="text-align:right">${fmtE(base)}</td>
       <td style="text-align:right;color:#e65100">${fmtE(iva)}</td>
-      <td style="text-align:right"><strong>${fmtE(liq+iva)}</strong></td>
+      <td style="text-align:right"><strong>${fmtE(base+iva)}</strong></td>
     </tr>`;
   }).join('');
 
@@ -269,31 +275,35 @@ function buildCSV(items, label) {
   const BOM = '\uFEFF';  // BOM para Excel reconhecer UTF-8
   const sep = ';';
   const lines = [
-    ['Data', 'Artista', 'Evento', 'Local', 'Cachet líquido (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep)
+    ['Data', 'Artista', 'Evento', 'Local', 'Cachet (€)', 'KM (€)', 'Base s/ IVA (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep)
   ];
 
-  let totalLiq = 0;
+  let totalBase = 0;
   for (const d of items) {
-    const liq = parseFloat(d.cachet) || 0;
-    const iva = liq * IVA;
-    totalLiq += liq;
+    const cachet = parseFloat(d.cachet) || 0;
+    const km     = d.km_euros || 0;
+    const base   = cachet + km;
+    const iva    = base * IVA;
+    totalBase   += base;
     lines.push([
       d.date,
       csvCell(d.artista),
       csvCell(d.evento),
       csvCell(d.local),
-      fmtCSV(liq),
+      fmtCSV(cachet),
+      fmtCSV(km),
+      fmtCSV(base),
       fmtCSV(iva),
-      fmtCSV(liq + iva)
+      fmtCSV(base + iva)
     ].join(sep));
   }
 
   // linha de totais
   lines.push([
-    'TOTAL', '', '', '',
-    fmtCSV(totalLiq),
-    fmtCSV(totalLiq * IVA),
-    fmtCSV(totalLiq * (1 + IVA))
+    'TOTAL', '', '', '', '', '',
+    fmtCSV(totalBase),
+    fmtCSV(totalBase * IVA),
+    fmtCSV(totalBase * (1 + IVA))
   ].join(sep));
 
   return BOM + lines.join('\r\n');

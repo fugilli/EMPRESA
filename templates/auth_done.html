@@ -12,8 +12,14 @@
 </head>
 <body>
 <div class="msg">
+{% if error %}
+  <h2 style="color:#c62828">✗ Erro na autenticação</h2>
+  <p>{{ error }}</p>
+  <p style="margin-top:1em"><a href="http://127.0.0.1:8765/auth">Voltar à app para tentar novamente</a></p>
+{% else %}
   <h2>✓ Autenticação concluída!</h2>
   <p>Podes fechar este separador e voltar à app.</p>
+{% endif %}
 </div>
 </body>
 </html>

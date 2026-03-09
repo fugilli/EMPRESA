@@ -42,6 +42,8 @@
     .km-badge { background:#e8f5e9; color:#2e7d32; border-radius:20px; padding:2px 10px; font-size:.8rem; font-weight:600; white-space:nowrap; }
     .km-loading { color:#aaa; font-size:.8rem; }
     .km-none { color:#ccc; }
+    .km-euros-badge { background:#e3f2fd; color:#1565c0; border-radius:20px; padding:2px 10px; font-size:.8rem; font-weight:600; white-space:nowrap; }
+    .cobrar-km-chk { width:16px; height:16px; cursor:pointer; accent-color:#4f8ef7; }
     .btn-del-row { background:none; border:none; color:#ddd; font-size:1rem; cursor:pointer; padding:3px 7px; border-radius:4px; line-height:1; }
     .btn-del-row:hover { color:#e53935; background:#fff0f0; }
     .info-bar { font-size:.78rem; color:#999; margin-top:10px; }
@@ -122,6 +124,7 @@
   <div class="totals-bar">
     <div class="total-item">Concertos: <strong id="tCount">—</strong></div>
     <div class="total-item">Cachet total: <strong id="tCachet">—</strong></div>
+    <div class="total-item">KM a cobrar: <strong id="tKm">—</strong></div>
     <div class="total-item" id="tAnnualWrap" style="display:none">Anual: <strong id="tAnnual">—</strong></div>
   </div>
 </div>
@@ -135,12 +138,13 @@
           <tr>
             <th>Data</th><th>Hora</th><th>Artista</th><th>Evento</th>
             <th>Local</th><th>Substituto</th><th>Cachet €</th><th>Km (i+v)</th>
+            <th style="text-align:center">Cobrar KM</th><th style="text-align:right">€ KM</th>
             <th style="width:36px"></th>
           </tr>
         </thead>
         <tbody id="concertsBody">
           {% for c in concerts %}
-          <tr data-year="{{ c.year }}" data-month="{{ c.month }}" data-cachet="{{ c.cachet }}" data-id="{{ c.id }}" data-artista="{{ c.artista }}">
+          <tr data-year="{{ c.year }}" data-month="{{ c.month }}" data-cachet="{{ c.cachet }}" data-id="{{ c.id }}" data-artista="{{ c.artista }}" data-km="{{ c.km if c.km != '' else 0 }}" data-km-euros="{{ c.km_euros }}">
             <td><strong>{{ c.date }}</strong></td>
             <td style="color:#888">{{ c.time or '—' }}</td>
             <td><input class="ef" data-field="artista"    data-id="{{ c.id }}" value="{{ c.artista }}"    placeholder="Artista"></td>
@@ -150,6 +154,12 @@
             <td><input class="ef num-f" type="number" step="0.01" min="0" data-field="cachet" data-id="{{ c.id }}" value="{{ c.cachet }}" placeholder="0" onchange="this.closest('tr').dataset.cachet=this.value; applyFilter()"></td>
             <td class="km-td">
               {% if c.km != '' %}<span class="km-badge">{{ c.km }} km</span>{% else %}<span class="km-none">—</span>{% endif %}
+            </td>
+            <td style="text-align:center">
+              <input type="checkbox" class="cobrar-km-chk" data-id="{{ c.id }}" {% if c.cobrar_km %}checked{% endif %} onchange="toggleCobrarKm('{{ c.id }}', this.checked, this)">
+            </td>
+            <td class="km-euros-td" style="text-align:right">
+              {% if c.cobrar_km and c.km != '' %}<span class="km-euros-badge">€ {{ '%.2f'|format(c.km_euros) }}</span>{% else %}<span class="km-none">—</span>{% endif %}
             </td>
             <td><button class="btn-del-row" onclick="deleteConcert('{{ c.id }}', this)" title="Eliminar concerto">✕</button></td>
           </tr>
@@ -237,7 +247,7 @@ function applyFilter() {
   const year   = parseInt(ySel.value)  || 0;
   const month  = parseInt(document.getElementById('monthSel').value) || 0;
   const artist = document.getElementById('artistSel').value;
-  let count=0, totalCachet=0, annualCachet=0;
+  let count=0, totalCachet=0, annualCachet=0, totalKm=0;
 
   document.querySelectorAll('#concertsBody tr[data-year]').forEach(row => {
     const ry = parseInt(row.dataset.year), rm = parseInt(row.dataset.month);
@@ -246,16 +256,37 @@ function applyFilter() {
     const inArtist = !artist || (row.dataset.artista || '') === artist;
     const show     = inYear && inMonth && inArtist;
     row.style.display = show ? '' : 'none';
-    const v = parseFloat(row.dataset.cachet) || 0;
-    if (show)              { count++; totalCachet += v; }
+    const v  = parseFloat(row.dataset.cachet)   || 0;
+    const km = parseFloat(row.dataset.kmEuros)  || 0;
+    if (show)               { count++; totalCachet += v; totalKm += km; }
     if (inYear && inArtist) { annualCachet += v; }
   });
 
   document.getElementById('tCount').textContent  = count;
   document.getElementById('tCachet').textContent = fmt(totalCachet);
+  document.getElementById('tKm').textContent     = fmt(totalKm);
   const showAnnual = month > 0 && year > 0;
   document.getElementById('tAnnualWrap').style.display = showAnnual ? '' : 'none';
   document.getElementById('tAnnual').textContent = fmt(annualCachet);
+}
+
+function toggleCobrarKm(id, checked, el) {
+  fetch('/api/update_concert', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({event_id: id, field: 'cobrar_km', value: checked})
+  }).then(r => r.json()).then(d => {
+    if (!d.ok) return;
+    const row = el.closest('tr');
+    const kmEuros = d.km_euros != null ? d.km_euros : (checked ? (parseFloat(row.dataset.km)||0)*0.40 : 0);
+    row.dataset.kmEuros = kmEuros;
+    const td = row.querySelector('.km-euros-td');
+    if (checked && kmEuros > 0) {
+      td.innerHTML = `<span class="km-euros-badge">€ ${fmt(kmEuros)}</span>`;
+    } else {
+      td.innerHTML = '<span class="km-none">—</span>';
+    }
+    applyFilter();
+  });
 }
 
 applyFilter();

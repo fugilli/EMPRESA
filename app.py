@@ -238,13 +238,16 @@ def _build_concerts_from_local():
             cachet = '0'
         # usa apenas o cache em memória — sem HTTP
         km = distances.get(local) if local else None
+        cobrar_km = bool(ov.get('cobrar_km', False))
+        km_euros  = round((km or 0) * 0.40, 2) if (km is not None and cobrar_km) else 0
 
         concerts_list.append({
             'id': event_id, 'date': date_str, 'time': time_str,
             'year': year, 'month': month,
             'artista': artista, 'evento': evento, 'local': local,
             'substituto': substituto, 'cachet': cachet,
-            'km': km if km is not None else ''
+            'km': km if km is not None else '',
+            'cobrar_km': cobrar_km, 'km_euros': km_euros
         })
 
     return concerts_list
@@ -279,7 +282,7 @@ def auth():
 def auth_start():
     import webbrowser
     flow = Flow.from_client_secrets_file(CREDENTIALS_FILE, scopes=SCOPES, redirect_uri=REDIRECT_URI)
-    auth_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true', prompt='consent')
+    auth_url, state = flow.authorization_url(access_type='offline', prompt='consent')
     save_json(OAUTH_STATE_FILE, {'state': state})
     webbrowser.open(auth_url)
     return jsonify({'ok': True})
@@ -293,15 +296,21 @@ def auth_status():
 @app.route('/oauth/callback')
 def oauth_callback():
     state_data = load_json(OAUTH_STATE_FILE, {})
-    flow = Flow.from_client_secrets_file(
-        CREDENTIALS_FILE, scopes=SCOPES,
-        state=state_data.get('state'), redirect_uri=REDIRECT_URI
-    )
-    flow.fetch_token(authorization_response=request.url)
-    save_credentials(flow.credentials)
-    if os.path.exists(OAUTH_STATE_FILE):
-        os.remove(OAUTH_STATE_FILE)
-    return render_template('auth_done.html')
+    try:
+        flow = Flow.from_client_secrets_file(
+            CREDENTIALS_FILE, scopes=SCOPES,
+            state=state_data.get('state'), redirect_uri=REDIRECT_URI
+        )
+        flow.fetch_token(authorization_response=request.url)
+        save_credentials(flow.credentials)
+        if os.path.exists(OAUTH_STATE_FILE):
+            os.remove(OAUTH_STATE_FILE)
+        return render_template('auth_done.html')
+    except Exception as e:
+        logging.error(f'OAuth callback falhou: {e}')
+        if os.path.exists(OAUTH_STATE_FILE):
+            os.remove(OAUTH_STATE_FILE)
+        return render_template('auth_done.html', error=str(e)), 200
 
 
 @app.route('/calendars')
@@ -480,22 +489,34 @@ def update_concert():
     body     = request.get_json()
     event_id = body.get('event_id')
     field    = body.get('field')
-    value    = body.get('value', '').strip()
+    value    = body.get('value')
 
-    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet'}:
+    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet', 'cobrar_km'}:
         return jsonify({'ok': False, 'error': 'campo inválido'})
 
     data = load_json(CONCERT_DATA_FILE, {})
     if event_id not in data:
         data[event_id] = {}
-    data[event_id][field] = value
+    if field == 'cobrar_km':
+        data[event_id][field] = bool(value)
+    else:
+        data[event_id][field] = str(value or '').strip()
     save_json(CONCERT_DATA_FILE, data)
 
     km = None
+    km_euros = None
     if field == 'local':
-        km = driving_distance_km(value) if value else None
+        km = driving_distance_km(str(value or '').strip()) if value else None
+    if field == 'cobrar_km':
+        # local pode estar no override ou parseado do summary
+        local_val = data[event_id].get('local', '')
+        if not local_val:
+            base_ev = load_json(CONCERTS_BASE_FILE, {'events': {}}).get('events', {}).get(event_id, {})
+            _, _, local_val, _ = parse_event_title(base_ev.get('summary', ''))
+        km_from_cache = _get_distances_mem().get(local_val or '')
+        km_euros = round((km_from_cache or 0) * 0.40, 2) if (km_from_cache and bool(value)) else 0
 
-    return jsonify({'ok': True, 'km': km})
+    return jsonify({'ok': True, 'km': km, 'km_euros': km_euros})
 
 
 # ── agências ──────────────────────────────────────────────────────────────────

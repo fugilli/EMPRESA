@@ -93,10 +93,12 @@ Overrides do utilizador por `event_id`. Sobrepõe-se ao parsed do `summary`.
     "evento": "Nome do evento",
     "local": "Cidade, País",
     "substituto": "Nome",
-    "cachet": "1500"
+    "cachet": "1500",
+    "cobrar_km": true
   }
 }
 ```
+`cobrar_km` (bool, default `false`) — indica se os km de deslocação são incluídos na fatura deste concerto.
 
 ### `data/distances_cache.json`
 Cache de distâncias km (ida+volta). Versão 2 (v1 era só ida; migração automática ×2 no arranque).
@@ -294,6 +296,10 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 
 **Solução:** `webbrowser.open(auth_url)` abre o browser do sistema. O estado OAuth é guardado em `data/oauth_state.tmp` (ficheiro) em vez de sessão Flask, porque PyWebView e o browser do sistema têm cookies diferentes. A página `auth.html` faz polling a `/auth/status` de 1,5 em 1,5s e redireciona quando o token está pronto.
 
+**Nota:** A URL de autorização usa `access_type='offline'` e `prompt='consent'` mas **não** `include_granted_scopes` — esse parâmetro fazia o Google incluir scopes de autorizações anteriores na resposta, causando mismatch com o `SCOPES` definido e um 500 no callback.
+
+**Resiliência do callback:** `/oauth/callback` tem try/except — em caso de falha (código expirado, state mismatch, etc.) mostra página legível no Safari com link para tentar novamente, em vez de 500.
+
 ---
 
 ## Distâncias (km)
@@ -383,6 +389,7 @@ Aplica `_IVA_FACTOR` por categoria, calcula tributação autónoma por component
 2. Para cada evento: parse do `summary` → aplica overrides de `concert_data.json` → cachet_base da agência se cachet vazio
 3. Cachet forçado a `'0'` se `substituto` não estiver vazio
 4. Km lido do cache em memória (sem HTTP)
+5. `cobrar_km` lido dos overrides (default `False`); `km_euros = km × €0,40` se `cobrar_km=True`, caso contrário `0`
 
 ### Refresh de cachet (`/api/agencias/<id>/artistas/refresh`)
 Itera `concerts_base.json`, filtra concertos futuros (> hoje UTC) do artista, actualiza `cachet` em `concert_data.json`. Não usa Google Calendar API.
@@ -426,6 +433,20 @@ A tab "Conflitos" mostra um badge vermelho com o número de eventos sobrepostos 
 - **Filtro:** apenas o ano corrente (igual ao filtro por defeito da página)
 - **Implementação:** `_nav.html` faz `fetch('/api/conflitos_count')` ao arranque; se `count > 0`, mostra o badge
 - **Endpoint:** `GET /api/conflitos_count` → `{"count": N}`
+
+---
+
+## Cobrança de KM na Faturação
+
+Na tab **Concertos**, cada linha tem:
+- **Cobrar KM** — checkbox que activa/desactiva a cobrança de km para esse concerto (guardado em `cobrar_km` em `concert_data.json`)
+- **€ KM** — valor calculado automaticamente: `km × €0,40` (só visível quando `cobrar_km=True`)
+
+Na tab **Faturação**, quando um concerto tem `cobrar_km=True`:
+- Os km entram na **base tributável** junto com o cachet: `Base s/ IVA = Cachet + KM`
+- O IVA 23% é calculado sobre a base total: `IVA = (Cachet + KM) × 23%`
+- O detalhe mensal mostra as colunas: Cachet | KM | Base s/ IVA | IVA 23% | Total c/ IVA
+- Concertos com `km_euros > 0` mas sem cachet também aparecem na faturação
 
 ---
 
@@ -505,3 +526,4 @@ gspread>=5.0.0
 | Valores decimais multiplicados por 100 no sync | gspread 6.x trata vírgulas como separadores de milhar: `"0,55"` → `55` | `get_all_records(value_render_option='UNFORMATTED_VALUE')` |
 | Datas aparecem como números no sync | `UNFORMATTED_VALUE` devolve datas como números de série do Sheets | `_sheets_date()` converte serial → `YYYY-MM-DD` via época 30/12/1899 |
 | "Internal Server Error" ao arrancar | Token OAuth expirado/revogado pelo Google (`invalid_grant`) — ocorre quando a app está em modo "teste" na Cloud Console e passaram 7 dias sem uso | `get_credentials()` apanha a excepção, apaga `token.pickle` automaticamente e redireciona para `/auth` |
+| "Internal Server Error" no Safari após login Google | `include_granted_scopes='true'` fazia o Google devolver scopes extras de autorizações anteriores (ex: `calendar` full); o `oauthlib` detetava o mismatch e lançava excepção | Removido `include_granted_scopes` da URL de auth; `oauth_callback` tem agora try/except que mostra página de erro legível em vez de 500 |
