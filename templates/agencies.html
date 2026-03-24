@@ -39,7 +39,9 @@
     .field-group { display: flex; flex-direction: column; gap: 2px; }
     .field-label { font-size: .68rem; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: .5px; }
     .agency-input { border: 1px solid transparent; border-radius: 5px; padding: 3px 7px; font-size: .95rem; font-weight: 600; outline: none; background: transparent; color: #1a1a2e; }
-    .agency-input.nif-f { font-weight: 400; font-size: .88rem; color: #555; max-width: 140px; }
+    .agency-input.nif-f   { font-weight: 400; font-size: .88rem; color: #555; max-width: 140px; }
+    .agency-input.small-f { font-weight: 400; font-size: .88rem; color: #555; max-width: 180px; }
+    .agency-input.wide-f  { font-weight: 400; font-size: .88rem; color: #555; min-width: 240px; }
     .agency-input:hover { border-color: #ddd; background: #f8f8f8; }
     .agency-input:focus { border-color: #4f8ef7; background: #fff; }
 
@@ -98,7 +100,9 @@
     html.dark .agency-input { color:#e0e6f0; }
     html.dark .agency-input:hover { border-color:#3a3d4e; background:#252838; }
     html.dark .agency-input:focus { background:#252838; }
-    html.dark .agency-input.nif-f { color:#8b9ab0; }
+    html.dark .agency-input.nif-f   { color:#8b9ab0; }
+    html.dark .agency-input.small-f { color:#8b9ab0; }
+    html.dark .agency-input.wide-f  { color:#8b9ab0; }
     html.dark .btn-del-agency:hover { background:#2a1515; }
     html.dark .artists-section { border-top-color:#252838; }
     html.dark .artists-title { color:#5a6478; }
@@ -134,6 +138,33 @@
       <div class="form-group">
         <label>NIF</label>
         <input type="text" id="newNif" placeholder="000000000" style="max-width:140px"
+               onkeydown="if(event.key==='Enter') createAgency()">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="text" id="newEmail" placeholder="email@agencia.pt" style="min-width:180px"
+               onkeydown="if(event.key==='Enter') createAgency()">
+      </div>
+      <div class="form-group">
+        <label>Telefone</label>
+        <input type="text" id="newTelefone" placeholder="+351 000 000 000" style="max-width:160px"
+               onkeydown="if(event.key==='Enter') createAgency()">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-group">
+        <label>Morada</label>
+        <input type="text" id="newMorada" placeholder="Rua, número, andar" style="min-width:260px"
+               onkeydown="if(event.key==='Enter') createAgency()">
+      </div>
+      <div class="form-group">
+        <label>Cód. Postal</label>
+        <input type="text" id="newCodigoPostal" placeholder="0000-000" style="max-width:120px"
+               onkeydown="if(event.key==='Enter') createAgency()">
+      </div>
+      <div class="form-group">
+        <label>Localidade</label>
+        <input type="text" id="newLocalidade" placeholder="Cidade" style="max-width:160px"
                onkeydown="if(event.key==='Enter') createAgency()">
       </div>
       <div style="display:flex;gap:8px;align-self:flex-end">
@@ -212,7 +243,27 @@
           </div>
           <div class="field-group">
             <span class="field-label">NIF</span>
-            <input class="agency-input nif-f" id="nif_${ag.id}" value="${escHtml(ag.nif)}" data-agency="${ag.id}" data-field="nif">
+            <input class="agency-input nif-f" id="nif_${ag.id}" value="${escHtml(ag.nif||'')}" data-agency="${ag.id}" data-field="nif">
+          </div>
+          <div class="field-group">
+            <span class="field-label">Email</span>
+            <input class="agency-input small-f" id="email_${ag.id}" value="${escHtml(ag.email||'')}" data-agency="${ag.id}" data-field="email" placeholder="—">
+          </div>
+          <div class="field-group">
+            <span class="field-label">Telefone</span>
+            <input class="agency-input small-f" id="telefone_${ag.id}" value="${escHtml(ag.telefone||'')}" data-agency="${ag.id}" data-field="telefone" placeholder="—">
+          </div>
+          <div class="field-group">
+            <span class="field-label">Morada</span>
+            <input class="agency-input wide-f" id="morada_${ag.id}" value="${escHtml(ag.morada||'')}" data-agency="${ag.id}" data-field="morada" placeholder="—">
+          </div>
+          <div class="field-group">
+            <span class="field-label">Cód. Postal</span>
+            <input class="agency-input nif-f" id="codigo_postal_${ag.id}" value="${escHtml(ag.codigo_postal||'')}" data-agency="${ag.id}" data-field="codigo_postal" placeholder="—">
+          </div>
+          <div class="field-group">
+            <span class="field-label">Localidade</span>
+            <input class="agency-input small-f" id="localidade_${ag.id}" value="${escHtml(ag.localidade||'')}" data-agency="${ag.id}" data-field="localidade" placeholder="—">
           </div>
         </div>
         <button class="btn-del-agency" onclick="deleteAgency('${ag.id}')" title="Eliminar agência">🗑</button>
@@ -280,16 +331,21 @@
   }
 
   async function createAgency() {
-    const nome = document.getElementById('newNome').value.trim();
-    const nif  = document.getElementById('newNif').value.trim();
+    const nome          = document.getElementById('newNome').value.trim();
+    const nif           = document.getElementById('newNif').value.trim();
+    const email         = document.getElementById('newEmail').value.trim();
+    const telefone      = document.getElementById('newTelefone').value.trim();
+    const morada        = document.getElementById('newMorada').value.trim();
+    const codigo_postal = document.getElementById('newCodigoPostal').value.trim();
+    const localidade    = document.getElementById('newLocalidade').value.trim();
     if (!nome) { document.getElementById('newNome').focus(); return; }
-    const res  = await fetch('/api/agencias', {
+    const res = await fetch('/api/agencias', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({nome, nif})
+      body: JSON.stringify({nome, nif, email, telefone, morada, codigo_postal, localidade})
     });
     if ((await res.json()).ok) {
-      document.getElementById('newNome').value = '';
-      document.getElementById('newNif').value  = '';
+      ['newNome','newNif','newEmail','newTelefone','newMorada','newCodigoPostal','newLocalidade']
+        .forEach(id => { document.getElementById(id).value = ''; });
       document.getElementById('newAgencyForm').classList.remove('visible');
       await reload();
     }

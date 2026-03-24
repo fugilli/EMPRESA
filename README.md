@@ -40,8 +40,9 @@ EMPRESA/
 │   ├── mapa_km.html              # Tab Mapa KM
 │   ├── faturacao.html            # Tab Faturação
 │   ├── iva.html                  # Tab IVA (controlo IVA liquidado vs. dedutível)
-│   ├── conta_corrente.html       # Tab Conta Corrente (P&L, IRC, pagamentos por conta)
+│   ├── conta_corrente.html       # Tab Conta Corrente (P&L, IRC, pagamentos por conta, IVA)
 │   ├── despesas.html             # Tab Despesas (faturas classificadas por conta SNC)
+│   ├── empresa.html              # Tab Empresa (dados da empresa emitente)
 │   ├── agencies.html             # Tab Agências
 │   ├── conflitos.html            # Tab Conflitos
 │   ├── auth.html                 # Página de autenticação Google
@@ -54,7 +55,8 @@ EMPRESA/
     ├── concerts_base.json        # Eventos sincronizados do Google Calendar
     ├── concert_data.json         # Overrides do utilizador (artista, cachet, local, etc.)
     ├── distances_cache.json      # Cache de distâncias km (versão 2 = ida+volta)
-    ├── agencies.json             # Agências e artistas
+    ├── agencies.json             # Agências e artistas (inclui morada, email, telefone)
+    ├── empresa.json              # Dados da empresa emitente (NIF, IBAN, morada, etc.)
     ├── deleted_events.json       # IDs de eventos apagados (não reaparecem no sync)
     ├── config.json               # calendar_id e calendar_name
     ├── config_contab.json        # Configuração fiscal (taxas IRC, IVA, service account)
@@ -94,11 +96,17 @@ Overrides do utilizador por `event_id`. Sobrepõe-se ao parsed do `summary`.
     "local": "Cidade, País",
     "substituto": "Nome",
     "cachet": "1500",
-    "cobrar_km": true
+    "cobrar_km": true,
+    "km_override": "350",
+    "mes_fatura": "3"
   }
 }
 ```
 `cobrar_km` (bool, default `false`) — indica se os km de deslocação são incluídos na fatura deste concerto.
+
+`km_override` (string, default `""`) — distância manual em km (ida+volta) que substitui o valor calculado pelo OSRM para este concerto específico. Vazio = usa a cache de distâncias pelo local. Editável directamente na coluna Km da tab Concertos.
+
+`mes_fatura` (string `"1"`–`"12"`, default `""`) — mês em que a fatura é emitida. **Enquanto vazio, o concerto não aparece na tab Faturação nem entra nos cálculos de IVA/Conta Corrente.** O ano é inferido automaticamente: se `mes_fatura >= mês do concerto` → mesmo ano; se `mes_fatura < mês do concerto` → ano seguinte (cobre o caso típico de concerto em Dezembro faturado em Janeiro).
 
 ### `data/distances_cache.json`
 Cache de distâncias km (ida+volta). Versão 2 (v1 era só ida; migração automática ×2 no arranque).
@@ -118,6 +126,11 @@ Cache de distâncias km (ida+volta). Versão 2 (v1 era só ida; migração autom
       "id": "<uuid>",
       "nome": "Agência XYZ",
       "nif": "123456789",
+      "morada": "Rua Exemplo, 10",
+      "codigo_postal": "1000-001",
+      "localidade": "Lisboa",
+      "email": "geral@agencia.pt",
+      "telefone": "+351 210 000 000",
       "artistas": [
         { "nome": "Artista A", "cachet_base": "1200" }
       ]
@@ -125,6 +138,7 @@ Cache de distâncias km (ida+volta). Versão 2 (v1 era só ida; migração autom
   ]
 }
 ```
+Todos os campos de contacto/morada são opcionais e editáveis inline na tab Agências. São incluídos no bloco DESTINATÁRIO do CSV de faturação.
 
 ### `data/config.json`
 ```json
@@ -133,6 +147,25 @@ Cache de distâncias km (ida+volta). Versão 2 (v1 era só ida; migração autom
   "calendar_name": "Concertos 2025"
 }
 ```
+
+### `data/empresa.json`
+Dados da empresa emitente. Criado/actualizado pela tab Empresa via `PUT /api/empresa`.
+```json
+{
+  "nome": "Nome Completo / Razão Social",
+  "nif": "123456789",
+  "morada": "Rua de Macau, 10",
+  "codigo_postal": "3000-001",
+  "localidade": "Coimbra",
+  "email": "email@empresa.pt",
+  "telefone": "+351 910 000 000",
+  "site": "www.empresa.pt",
+  "iban": "PT50 0000 0000 0000 0000 0000 0",
+  "bic": "AAAAPTPL",
+  "banco": "Nome do Banco"
+}
+```
+Todos os campos são opcionais. Os dados preenchidos aparecem no bloco EMITENTE do CSV de faturação.
 
 ### `data/config_contab.json`
 Configuração fiscal, criada automaticamente na primeira chamada a `_get_contab_config()`.
@@ -309,6 +342,7 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 - Routing: OSRM → distância em metros → ÷1000 × 2 (ida+volta)
 - Cache em memória (`_distances_mem`) carregada uma vez do disco; persistida em `distances_cache.json`
 - Distâncias são pré-calculadas durante o sync (`/api/sync`), nunca durante carregamento de página
+- Apresentadas arredondadas ao km inteiro (sem casas decimais) nas tabs Concertos e Mapa KM
 - Taxa km: **€0,40/km**
 
 ---
@@ -332,6 +366,7 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 | `GET /iva` | `iva.html` | Tab IVA |
 | `GET /conta_corrente` | `conta_corrente.html` | Tab Conta Corrente |
 | `GET /despesas` | `despesas.html` | Tab Despesas |
+| `GET /empresa` | `empresa.html` | Tab Empresa |
 | `GET /agencias` | `agencies.html` | Tab Agências |
 | `GET /conflitos` | `conflitos.html` | Tab Conflitos |
 
@@ -356,6 +391,8 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 | `/api/agencias/<id>/artistas/cachet` | PUT | Actualiza cachet_base do artista |
 | `/api/agencias/<id>/artistas/refresh` | POST | Aplica cachet_base a concertos futuros |
 | `/api/conflitos_count` | GET | Nº de eventos sobrepostos (badge da tab) |
+| `/api/empresa` | GET | Lê dados da empresa (`empresa.json`) |
+| `/api/empresa` | PUT | Guarda dados da empresa |
 
 ---
 
@@ -375,21 +412,23 @@ No arranque, `_migrate_distances_cache()` converte automaticamente caches v1 (id
 5. Guarda em `despesas.json` com timestamp
 
 ### Construção da contabilidade (`_build_contabilidade`)
-Agrega dados por `(year, month)` a partir de três fontes:
-- **Rendimentos:** concertos sem substituto com cachet > 0 → base tributável + IVA liquidado
+Agrega dados por `(year_fat, month_fat)` a partir de três fontes:
+- **Rendimentos:** concertos sem substituto, com `mes_fatura` definido e cachet > 0 → base tributável + IVA liquidado
 - **Gastos despesas:** `despesas.json` → base + IVA dedutível/não dedutível por categoria
 - **Gastos km:** Mapa KM → km × €0,40
 Aplica `_IVA_FACTOR` por categoria, calcula tributação autónoma por componente:
 - `ta_representacao` = base representação × 10% (art. 88.º n.º 7)
 - `ta_km` = gastos_km × 5% (art. 88.º n.º 9)
 - `tributacao_autonoma` = `ta_representacao` + `ta_km` (total incluído em `irc_total`)
+- `iva_saldo` = `iva_liquidado` − `iva_deducivel` (IVA a entregar ao Estado, visível na Conta Corrente)
 
 ### Construção da lista de concertos (`_build_concerts_from_local`)
 1. Lê `concerts_base.json` ordenado por `start` (ISO string, ordena lexicograficamente)
 2. Para cada evento: parse do `summary` → aplica overrides de `concert_data.json` → cachet_base da agência se cachet vazio
 3. Cachet forçado a `'0'` se `substituto` não estiver vazio
-4. Km lido do cache em memória (sem HTTP)
+4. Km: se `km_override` definido nos overrides → usa esse valor; caso contrário lê do cache em memória (sem HTTP)
 5. `cobrar_km` lido dos overrides (default `False`); `km_euros = km × €0,40` se `cobrar_km=True`, caso contrário `0`
+6. `mes_fatura` lido dos overrides (default `""`); calcula `year_fat`/`month_fat` — se vazio, iguais a `year`/`month` do concerto
 
 ### Refresh de cachet (`/api/agencias/<id>/artistas/refresh`)
 Itera `concerts_base.json`, filtra concertos futuros (> hoje UTC) do artista, actualiza `cachet` em `concert_data.json`. Não usa Google Calendar API.
@@ -436,11 +475,24 @@ A tab "Conflitos" mostra um badge vermelho com o número de eventos sobrepostos 
 
 ---
 
+## Mês de Faturação
+
+Na tab **Concertos**, cada linha tem uma coluna **Mês Fatura** com um dropdown (—, Janeiro … Dezembro).
+
+- **Vazio (—):** fatura ainda não emitida — o concerto **não aparece** na Faturação, IVA nem Conta Corrente
+- **Mês definido:** considera-se a fatura emitida nesse mês; os cálculos financeiros usam esse mês em vez do mês do concerto
+- **Inferência do ano:** `mes_fatura >= mês do concerto` → mesmo ano; `mes_fatura < mês do concerto` → ano seguinte (ex: concerto em Dezembro, fatura em Janeiro do ano seguinte)
+
+O valor é guardado em `concert_data.json` como número de mês (`"1"`–`"12"`).
+
+---
+
 ## Cobrança de KM na Faturação
 
 Na tab **Concertos**, cada linha tem:
+- **Km (i+v)** — distância calculada automaticamente pelo OSRM. **Editável directamente**: clicar no valor permite corrigir a distância manualmente; o novo valor é guardado como `km_override` em `concert_data.json` e substitui o valor da cache para esse concerto. Campo vazio = volta a usar a cache pelo local.
 - **Cobrar KM** — checkbox que activa/desactiva a cobrança de km para esse concerto (guardado em `cobrar_km` em `concert_data.json`)
-- **€ KM** — valor calculado automaticamente: `km × €0,40` (só visível quando `cobrar_km=True`)
+- **€ KM** — valor calculado automaticamente: `km × €0,40` (só visível quando `cobrar_km=True`); actualiza imediatamente quando se edita o km
 
 Na tab **Faturação**, quando um concerto tem `cobrar_km=True`:
 - Os km entram na **base tributável** junto com o cachet: `Base s/ IVA = Cachet + KM`
@@ -452,15 +504,63 @@ Na tab **Faturação**, quando um concerto tem `cobrar_km=True`:
 
 ## Exportação CSV
 
-- **Faturação:** botão "⬇ CSV" por mês
+- **Faturação:** botão "⬇ CSV" por mês — o ficheiro contém 3 secções separadas por 2 linhas em branco:
+  1. **EMITENTE** — dados da empresa (`empresa.json`): Nome, NIF, Morada, Email, Telefone, IBAN, BIC, Banco
+  2. **DESTINATÁRIO** — dados da agência associada aos artistas do mês: Nome, NIF, Morada, Email, Telefone
+  3. **FATURAÇÃO** — tabela de concertos: Data; Artista; Local; Cachet (€); Distância (km); Taxa (€/km); KM (€); Base s/ IVA (€); IVA 23% (€); Total c/ IVA (€) — colunas de km ficam vazias quando não há km a cobrar
+  - Filtro de agência na filter-bar filtra a tabela e define o DESTINATÁRIO
+  - DESTINATÁRIO preenchido automaticamente quando todos os concertos pertencem à mesma agência
 - **Mapa KM:** botão "⬇ Exportar CSV" com filtro activo
 - **IVA:** botão por trimestre e mensal
-- **Conta Corrente:** botão "⬇ Exportar CSV" global
+- **Conta Corrente:** botão "⬇ Exportar CSV" global — colunas: Mês; Rendimentos; Gastos FSE; Gastos KM; Total Gastos; Resultado; IRC; Derrama; Trib. Autónoma; Total Impostos; IVA Liquidado; IVA Dedutível; IVA a Pagar
 - **Despesas:** botão "⬇ Exportar CSV" com filtro activo
 
 O JS envia o conteúdo via `POST /api/export_csv`; o Flask escreve o ficheiro directamente em `~/Downloads/`. Um `alert` confirma o nome do ficheiro guardado.
 
 Formato: separador `;`, decimais com vírgula, BOM UTF-8 (para Excel PT abrir correctamente).
+
+---
+
+## Tab Conta Corrente
+
+Vista financeira consolidada com três vistas (Mensal, Trimestral, Anual) e dois blocos por período:
+
+**P&L (coluna esquerda)**
+- Rendimentos: cachets faturados (com `mes_fatura` definido)
+- Gastos FSE por categoria SNC (anotações de IVA não dedutível e tributação autónoma)
+- Gastos km: km × €0,40
+- **Resultado antes de IRC**
+
+**Estimativa IRC + IVA (coluna direita)**
+
+*Card IRC:*
+- IRC PME escalonado (taxa reduzida / normal) + Derrama
+- Tributação autónoma: representação 10% (art. 88.º n.º 7) + km 5% (art. 88.º n.º 9)
+- Pagamentos por Conta estimados (Julho, Setembro, Dezembro)
+
+*Card IVA:*
+- **IVA Liquidado** — IVA cobrado nos cachets (valor recebido no banco inclui este montante)
+- **IVA Dedutível** — IVA recuperável das faturas de despesa
+- **IVA a entregar ao Estado** = Liquidado − Dedutível
+- Tabela de prazos DP IVA trimestral: Q1→20 Mai, Q2→20 Ago, Q3→20 Nov, Q4→20 Fev
+
+Na vista **Mensal** as mesmas três grandezas de IVA aparecem como colunas na tabela, e são incluídas no CSV.
+
+---
+
+## Tab Empresa
+
+Formulário com os dados da empresa emitente, organizado em 3 secções:
+
+| Secção | Campos |
+|---|---|
+| Identificação | Nome / Razão Social, NIF, Email, Telefone, Site |
+| Morada | Morada, Código Postal, Localidade |
+| Dados Bancários | IBAN, BIC/SWIFT, Banco |
+
+- Guardado em `data/empresa.json` via `PUT /api/empresa`
+- Os dados preenchidos aparecem automaticamente no bloco **EMITENTE** de todos os CSV de faturação
+- O IBAN é especialmente relevante para o contabilista/agência identificar a conta de pagamento
 
 ---
 

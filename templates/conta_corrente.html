@@ -51,6 +51,12 @@
     .irc-ppc-row { display:flex; justify-content:space-between; padding:3px 0; color:#555; }
     .irc-ta-block { background:#fff8e1; border:1px solid #ffe082; border-radius:6px; padding:10px 14px; margin-top:10px; font-size:.84rem; }
     .irc-ta-title { font-weight:700; color:#f57f17; font-size:.85rem; margin-bottom:6px; }
+    .iva-card { background:#f3f8ff; border:1px solid #c5daff; }
+    .iva-row { display:flex; justify-content:space-between; padding:5px 0; font-size:.87rem; }
+    .iva-row.total { font-weight:700; border-top:2px solid #4f8ef7; padding-top:10px; margin-top:6px; }
+    .iva-prazos { background:#e8f5e9; border-radius:6px; padding:10px 14px; margin-top:10px; font-size:.84rem; }
+    .iva-prazos-title { font-weight:700; color:#2e7d32; font-size:.85rem; margin-bottom:6px; }
+    .iva-prazos-row { display:flex; justify-content:space-between; padding:3px 0; color:#555; }
     .cat-note { font-size:.72rem; color:#e65100; font-weight:400; margin-left:6px; opacity:.85; }
     .cat-ta   { font-size:.72rem; color:#f57f17; font-weight:600; margin-left:6px; }
 
@@ -100,6 +106,12 @@
     html.dark .irc-ppc-row { color:#b0bcd4; }
     html.dark .irc-ta-block { background:#2a2010; border-color:#5a4010; }
     html.dark .irc-ta-title { color:#ffca28; }
+    html.dark .iva-card { background:#131c30; border-color:#2a3d5e; }
+    html.dark .iva-row { color:#e0e6f0; }
+    html.dark .iva-row.total { border-top-color:#4f8ef7; }
+    html.dark .iva-prazos { background:#1a2a1a; }
+    html.dark .iva-prazos-title { color:#69f0ae; }
+    html.dark .iva-prazos-row { color:#b0bcd4; }
     html.dark .cat-note { color:#ff8a65; }
     html.dark .cat-ta   { color:#ffca28; }
     html.dark .pl-row.resultado-pos { color:#69f0ae; background:rgba(105,240,174,.1); }
@@ -348,6 +360,37 @@ function ircCard(r){
   return html;
 }
 
+// ── card IVA ──────────────────────────────────────────────────────────────────
+function ivaCard(r, ano, trimestre){
+  const liq  = r.iva_liquidado  || 0;
+  const ded  = r.iva_deducivel  || 0;
+  const sald = Math.round((liq - ded) * 100) / 100;
+
+  // prazos DP IVA trimestral
+  const prazos = [
+    {label:'Q1 (Jan–Mar)', prazo:'20 Maio'},
+    {label:'Q2 (Abr–Jun)', prazo:'20 Ago'},
+    {label:'Q3 (Jul–Set)', prazo:'20 Nov'},
+    {label:'Q4 (Out–Dez)', prazo:'20 Fev (ano seg.)'},
+  ];
+
+  let html = `<div class="card iva-card"><div class="card-head">IVA</div>
+  <div class="pl-section">
+    <div class="iva-row"><span>IVA Liquidado (recebido c/ cachets)</span><span>€${fmt(liq)}</span></div>
+    <div class="iva-row"><span>IVA Dedutível (faturas de despesa)</span><span style="color:#1a5c34">−€${fmt(ded)}</span></div>
+    <div class="iva-row total"><span>IVA a entregar ao Estado</span><span style="color:${sald>0?'#b71c1c':'#1a5c34'}">€${fmt(sald)}</span></div>
+    <div style="font-size:.74rem;color:#888;margin-top:6px">Regime trimestral — DP IVA submetida até dia 20 do 2.º mês após o trimestre</div>
+    <div class="iva-prazos" style="margin-top:10px">
+      <div class="iva-prazos-title">Prazos DP IVA Trimestral</div>`;
+
+  for(const p of prazos){
+    html += `<div class="iva-prazos-row"><span>${p.label}</span><span>${p.prazo}</span></div>`;
+  }
+
+  html += `</div></div></div>`;
+  return html;
+}
+
 // ── km total para label ───────────────────────────────────────────────────────
 function kmTotal(rows){
   return rows.reduce((s,r)=>{
@@ -363,7 +406,7 @@ function renderAnual(ano){
   const r=agregar(rows);
   return `<div class="layout">
     <div>${plCard('Conta Corrente '+ano, r, Math.round(kmTotal(rows)))}</div>
-    <div>${ircCard(r)}</div>
+    <div>${ircCard(r)}${ivaCard(r)}</div>
   </div>`;
 }
 
@@ -375,7 +418,7 @@ function renderTrimestral(ano){
     const r=agregar(rows);
     html+=`<div class="layout">
       <div>${plCard(`${qt.label} ${ano} (${MESES[qt.meses[0]-1].substring(0,3)}–${MESES[qt.meses[2]-1].substring(0,3)})`, r, Math.round(kmTotal(rows)))}</div>
-      <div>${ircCard(r)}</div>
+      <div>${ircCard(r)}${ivaCard(r)}</div>
     </div>`;
   }
   return html||`<div class="empty-state">Sem dados para ${ano}.</div>`;
@@ -389,12 +432,18 @@ function renderMensal(ano){
     <th class="num">Gastos KM</th><th class="num">Total Gastos</th>
     <th class="num">Resultado</th><th class="num">IRC+Derrama</th>
     <th class="num">Trib. Autónoma</th><th class="num">Total Impostos</th>
+    <th class="num" style="border-left:2px solid #4f8ef7">IVA Liquidado</th>
+    <th class="num">IVA Dedutível</th>
+    <th class="num">IVA a Pagar</th>
   </tr></thead><tbody>`;
-  let tot={rendimentos:0,gastos_despesas:0,gastos_km:0,gastos_total:0,resultado:0,tributacao_autonoma:0};
+  let tot={rendimentos:0,gastos_despesas:0,gastos_km:0,gastos_total:0,resultado:0,tributacao_autonoma:0,iva_liquidado:0,iva_deducivel:0};
   for(const r of rows){
     const irc=calcIRC(r.resultado);
     const ta=r.tributacao_autonoma||0;
     const cls=r.resultado>=0?'pos':'neg';
+    const ivaLiq=r.iva_liquidado||0;
+    const ivaDed=r.iva_deducivel||0;
+    const ivaPag=Math.round((ivaLiq-ivaDed)*100)/100;
     html+=`<tr>
       <td>${MESES[r.month-1]}</td>
       <td class="num">€${fmt(r.rendimentos)}</td>
@@ -405,12 +454,18 @@ function renderMensal(ano){
       <td class="num">€${fmt(irc.total)}</td>
       <td class="num">${ta>0.005?'€'+fmt(ta):'—'}</td>
       <td class="num">€${fmt(Math.round((irc.total+ta)*100)/100)}</td>
+      <td class="num" style="border-left:2px solid #4f8ef7">${ivaLiq>0.005?'€'+fmt(ivaLiq):'—'}</td>
+      <td class="num">${ivaDed>0.005?'€'+fmt(ivaDed):'—'}</td>
+      <td class="num" style="font-weight:600;color:${ivaPag>0.005?'#b71c1c':'#1a5c34'}">${ivaPag>0.005?'€'+fmt(ivaPag):'—'}</td>
     </tr>`;
-    ['rendimentos','gastos_despesas','gastos_km','gastos_total','resultado','tributacao_autonoma'].forEach(k=>tot[k]+=(r[k]||0));
+    ['rendimentos','gastos_despesas','gastos_km','gastos_total','resultado','tributacao_autonoma','iva_liquidado','iva_deducivel'].forEach(k=>tot[k]+=(r[k]||0));
   }
   const totIRC=calcIRC(tot.resultado);
   const tcls=tot.resultado>=0?'pos':'neg';
   const totTA=Math.round(tot.tributacao_autonoma*100)/100;
+  const totIvaLiq=Math.round(tot.iva_liquidado*100)/100;
+  const totIvaDed=Math.round(tot.iva_deducivel*100)/100;
+  const totIvaPag=Math.round((totIvaLiq-totIvaDed)*100)/100;
   html+=`<tr style="font-weight:700;background:#f8faff">
     <td>Total</td>
     <td class="num">€${fmt(tot.rendimentos)}</td>
@@ -421,6 +476,9 @@ function renderMensal(ano){
     <td class="num">€${fmt(totIRC.total)}</td>
     <td class="num">${totTA>0.005?'€'+fmt(totTA):'—'}</td>
     <td class="num">€${fmt(Math.round((totIRC.total+totTA)*100)/100)}</td>
+    <td class="num" style="border-left:2px solid #4f8ef7">€${fmt(totIvaLiq)}</td>
+    <td class="num">€${fmt(totIvaDed)}</td>
+    <td class="num" style="color:${totIvaPag>0.005?'#b71c1c':'#1a5c34'}">€${fmt(totIvaPag)}</td>
   </tr></tbody></table></div>`;
   return html;
 }
@@ -445,17 +503,23 @@ function render(){
 function exportarCSV(){
   const ano=selectedAno();
   const rows=DADOS.filter(d=>d.year===ano).sort((a,b)=>a.month-b.month);
-  let csv=bom('Mês;Rendimentos;Gastos FSE;Gastos KM;Total Gastos;Resultado;IRC;Derrama;Trib. Autónoma;Total Impostos\n');
-  let tot={rendimentos:0,gastos_despesas:0,gastos_km:0,gastos_total:0,resultado:0,tributacao_autonoma:0};
+  let csv=bom('Mês;Rendimentos;Gastos FSE;Gastos KM;Total Gastos;Resultado;IRC;Derrama;Trib. Autónoma;Total Impostos;IVA Liquidado;IVA Dedutível;IVA a Pagar\n');
+  let tot={rendimentos:0,gastos_despesas:0,gastos_km:0,gastos_total:0,resultado:0,tributacao_autonoma:0,iva_liquidado:0,iva_deducivel:0};
   for(const r of rows){
     const irc=calcIRC(r.resultado);
     const ta=r.tributacao_autonoma||0;
-    csv+=`${MESES[r.month-1]};${eur(r.rendimentos)};${eur(r.gastos_despesas)};${eur(r.gastos_km)};${eur(r.gastos_total)};${eur(r.resultado)};${eur(irc.irc)};${eur(irc.derrama)};${eur(ta)};${eur(Math.round((irc.total+ta)*100)/100)}\n`;
-    ['rendimentos','gastos_despesas','gastos_km','gastos_total','resultado','tributacao_autonoma'].forEach(k=>tot[k]+=(r[k]||0));
+    const ivaLiq=r.iva_liquidado||0;
+    const ivaDed=r.iva_deducivel||0;
+    const ivaPag=Math.round((ivaLiq-ivaDed)*100)/100;
+    csv+=`${MESES[r.month-1]};${eur(r.rendimentos)};${eur(r.gastos_despesas)};${eur(r.gastos_km)};${eur(r.gastos_total)};${eur(r.resultado)};${eur(irc.irc)};${eur(irc.derrama)};${eur(ta)};${eur(Math.round((irc.total+ta)*100)/100)};${eur(ivaLiq)};${eur(ivaDed)};${eur(ivaPag)}\n`;
+    ['rendimentos','gastos_despesas','gastos_km','gastos_total','resultado','tributacao_autonoma','iva_liquidado','iva_deducivel'].forEach(k=>tot[k]+=(r[k]||0));
   }
   const totIRC=calcIRC(tot.resultado);
   const totTA=Math.round(tot.tributacao_autonoma*100)/100;
-  csv+=`TOTAL;${eur(tot.rendimentos)};${eur(tot.gastos_despesas)};${eur(tot.gastos_km)};${eur(tot.gastos_total)};${eur(tot.resultado)};${eur(totIRC.irc)};${eur(totIRC.derrama)};${eur(totTA)};${eur(Math.round((totIRC.total+totTA)*100)/100)}\n`;
+  const totIvaLiq=Math.round(tot.iva_liquidado*100)/100;
+  const totIvaDed=Math.round(tot.iva_deducivel*100)/100;
+  const totIvaPag=Math.round((totIvaLiq-totIvaDed)*100)/100;
+  csv+=`TOTAL;${eur(tot.rendimentos)};${eur(tot.gastos_despesas)};${eur(tot.gastos_km)};${eur(tot.gastos_total)};${eur(tot.resultado)};${eur(totIRC.irc)};${eur(totIRC.derrama)};${eur(totTA)};${eur(Math.round((totIRC.total+totTA)*100)/100)};${eur(totIvaLiq)};${eur(totIvaDed)};${eur(totIvaPag)}\n`;
   fetch('/api/export_csv',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({filename:`conta_corrente_${ano}.csv`,content:csv})})
   .then(r=>r.json()).then(d=>{

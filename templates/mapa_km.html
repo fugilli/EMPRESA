@@ -110,7 +110,7 @@
 const DATA  = {{ concerts_json | safe }};
 const KM_RATE = 0.40;
 const fmt   = n => '€' + Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
-const fmtKm = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:1, maximumFractionDigits:1}) + ' km';
+const fmtKm = n => Math.round(Number(n)).toLocaleString('pt-PT') + ' km';
 
 // só registos com km
 const rows = DATA.filter(d => d.km !== '' && d.km !== null && d.km !== undefined);
@@ -173,7 +173,7 @@ function exportCSV() {
   const BOM = '\uFEFF';
   const sep = ';';
   const fmtN = n => Number(n).toFixed(2).replace('.', ',');
-  const fmtK = n => Number(n).toFixed(1).replace('.', ',');
+  const fmtK = n => String(Math.round(Number(n)));
 
   const lines = [['Data', 'Artista', 'Local', 'Km (ida+volta)', 'Valor € (×0,40)'].join(sep)];
 

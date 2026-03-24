@@ -96,6 +96,8 @@
     <option value="9">Setembro</option><option value="10">Outubro</option>
     <option value="11">Novembro</option><option value="12">Dezembro</option>
   </select>
+  <span class="filter-label">Agência</span>
+  <select id="agenciaSel" onchange="applyFilter()"><option value="">Todas</option></select>
   <div class="totals-bar">
     <div class="total-item">Base (s/ IVA): <strong id="tLiq">—</strong></div>
     <div class="total-item">IVA 23%: <strong id="tIva">—</strong></div>
@@ -154,37 +156,63 @@
 </div>
 
 <script>
-const DATA   = {{ concerts_json | safe }};
-const IVA    = 0.23;
-const MONTHS = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const fmt    = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
-const fmtE   = n => '€' + fmt(n);
-const fmtCSV = n => Number(n).toFixed(2).replace('.', ',');  // vírgula para Excel PT
+const DATA     = {{ concerts_json | safe }};
+const EMPRESA  = {{ empresa_json | safe }};
+const AGENCIAS = {{ agencias_json | safe }};
+const IVA      = 0.23;
+const MONTHS   = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const fmt      = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtE     = n => '€' + fmt(n);
+const fmtCSV   = n => Number(n).toFixed(2).replace('.', ',');  // vírgula para Excel PT
 
-// registos com cachet > 0 OU com km a cobrar
-const rows = DATA.filter(d => (d.cachet !== '' && parseFloat(d.cachet) > 0) || d.km_euros > 0);
+// lookup artista → agência
+const artistaToAgencia = {};
+AGENCIAS.forEach(ag => {
+  (ag.artistas || []).forEach(a => { artistaToAgencia[a.nome] = ag; });
+});
 
-const years = [...new Set(rows.map(d=>d.year).filter(y=>y>0))].sort();
+// apenas concertos com fatura emitida (mes_fatura definido) E com valor
+const rows = DATA.filter(d => d.mes_fatura && ((d.cachet !== '' && parseFloat(d.cachet) > 0) || d.km_euros > 0));
+
+// popular dropdowns de ano e agência
+const years = [...new Set(rows.map(d=>d.year_fat).filter(y=>y>0))].sort();
 const ySel  = document.getElementById('yearSel');
 years.forEach(y => { const o=document.createElement('option'); o.value=o.textContent=y; ySel.appendChild(o); });
 const curYear = new Date().getFullYear();
 if (years.includes(curYear)) ySel.value = curYear;
 
+const agSel = document.getElementById('agenciaSel');
+AGENCIAS.forEach(ag => {
+  const o = document.createElement('option');
+  o.value = ag.id;
+  o.textContent = ag.nome;
+  agSel.appendChild(o);
+});
+
 // guarda itens do mês aberto para exportação
 let currentDetailItems = [];
 let currentDetailLabel = '';
+
+function getAgenciaFilter() { return agSel.value; }
+
+function rowMatchesAgencia(d) {
+  const agId = getAgenciaFilter();
+  if (!agId) return true;
+  const ag = artistaToAgencia[d.artista];
+  return ag && ag.id === agId;
+}
 
 function applyFilter() {
   const year  = parseInt(ySel.value) || 0;
   const month = parseInt(document.getElementById('monthSel').value) || 0;
 
-  const visible = rows.filter(d => (!year||d.year===year) && (!month||d.month===month));
-  const forYear = rows.filter(d => !year || d.year===year);
+  const visible = rows.filter(d => (!year||d.year_fat===year) && (!month||d.month_fat===month) && rowMatchesAgencia(d));
+  const forYear = rows.filter(d => (!year||d.year_fat===year) && rowMatchesAgencia(d));
 
   const byMonth = {};
   visible.forEach(d => {
-    const key = `${d.year}-${String(d.month).padStart(2,'0')}`;
-    if (!byMonth[key]) byMonth[key] = {year:d.year, month:d.month, items:[]};
+    const key = `${d.year_fat}-${String(d.month_fat).padStart(2,'0')}`;
+    if (!byMonth[key]) byMonth[key] = {year:d.year_fat, month:d.month_fat, items:[]};
     byMonth[key].items.push(d);
   });
 
@@ -239,8 +267,9 @@ function toggleDetail(key) {
   const [y, m]   = key.split('-').map(Number);
   const year     = parseInt(ySel.value) || 0;
   const month    = parseInt(document.getElementById('monthSel').value) || 0;
-  const items    = rows.filter(d => d.year===y && d.month===m &&
-                               (!year||d.year===year) && (!month||d.month===month));
+  const items    = rows.filter(d => d.year_fat===y && d.month_fat===m &&
+                               (!year||d.year_fat===year) && (!month||d.month_fat===month) &&
+                               rowMatchesAgencia(d));
 
   currentDetailItems = items;
   currentDetailLabel = `${MONTHS[m]}_${y}`;
@@ -271,27 +300,80 @@ function toggleDetail(key) {
 
 // ── exportação CSV ────────────────────────────────────────────────────────────
 
+function getAgenciaForItems(items) {
+  // devolve a agência se todos os items pertencem à mesma, ou null
+  const agIds = new Set(items.map(d => {
+    const ag = artistaToAgencia[d.artista];
+    return ag ? ag.id : null;
+  }));
+  if (agIds.size === 1) {
+    const id = [...agIds][0];
+    return id ? AGENCIAS.find(a => a.id === id) : null;
+  }
+  return null;
+}
+
 function buildCSV(items, label) {
-  const BOM = '\uFEFF';  // BOM para Excel reconhecer UTF-8
+  const BOM = '\uFEFF';
   const sep = ';';
-  const lines = [
-    ['Data', 'Artista', 'Evento', 'Local', 'Cachet (€)', 'KM (€)', 'Base s/ IVA (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep)
-  ];
+  const lines = [];
+
+  const blank = () => lines.push('');
+
+  // ── EMITENTE ──
+  if (EMPRESA.nome || EMPRESA.nif) {
+    lines.push('EMITENTE');
+    if (EMPRESA.nome)         lines.push([csvCell('Nome'),      csvCell(EMPRESA.nome)].join(sep));
+    if (EMPRESA.nif)          lines.push([csvCell('NIF'),       csvCell(EMPRESA.nif)].join(sep));
+    if (EMPRESA.morada)       lines.push([csvCell('Morada'),    csvCell(EMPRESA.morada)].join(sep));
+    if (EMPRESA.codigo_postal || EMPRESA.localidade)
+      lines.push([csvCell('Localidade'), csvCell([EMPRESA.codigo_postal, EMPRESA.localidade].filter(Boolean).join(' '))].join(sep));
+    if (EMPRESA.email)        lines.push([csvCell('Email'),     csvCell(EMPRESA.email)].join(sep));
+    if (EMPRESA.telefone)     lines.push([csvCell('Telefone'),  csvCell(EMPRESA.telefone)].join(sep));
+    if (EMPRESA.iban)         lines.push([csvCell('IBAN'),      csvCell(EMPRESA.iban)].join(sep));
+    if (EMPRESA.bic)          lines.push([csvCell('BIC/SWIFT'), csvCell(EMPRESA.bic)].join(sep));
+    if (EMPRESA.banco)        lines.push([csvCell('Banco'),     csvCell(EMPRESA.banco)].join(sep));
+    blank(); blank();
+  }
+
+  // ── DESTINATÁRIO ──
+  const ag = getAgenciaFilter()
+    ? AGENCIAS.find(a => a.id === getAgenciaFilter())
+    : getAgenciaForItems(items);
+
+  if (ag) {
+    lines.push('DESTINATÁRIO');
+    if (ag.nome)         lines.push([csvCell('Agência'),   csvCell(ag.nome)].join(sep));
+    if (ag.nif)          lines.push([csvCell('NIF'),        csvCell(ag.nif)].join(sep));
+    if (ag.morada)       lines.push([csvCell('Morada'),     csvCell(ag.morada)].join(sep));
+    if (ag.codigo_postal || ag.localidade)
+      lines.push([csvCell('Localidade'), csvCell([ag.codigo_postal, ag.localidade].filter(Boolean).join(' '))].join(sep));
+    if (ag.email)        lines.push([csvCell('Email'),      csvCell(ag.email)].join(sep));
+    if (ag.telefone)     lines.push([csvCell('Telefone'),   csvCell(ag.telefone)].join(sep));
+    blank(); blank();
+  }
+
+  // ── FATURAÇÃO ──
+  lines.push('FATURAÇÃO ' + label.replace('_', ' '));
+  lines.push(['Data', 'Artista', 'Local', 'Cachet (€)', 'Distância (km)', 'Taxa (€/km)', 'KM (€)', 'Base s/ IVA (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep));
 
   let totalBase = 0;
   for (const d of items) {
-    const cachet = parseFloat(d.cachet) || 0;
-    const km     = d.km_euros || 0;
-    const base   = cachet + km;
-    const iva    = base * IVA;
-    totalBase   += base;
+    const cachet   = parseFloat(d.cachet) || 0;
+    const kmDist   = d.km_euros > 0 ? (parseFloat(d.km) || 0) : 0;
+    const kmEuros  = d.km_euros || 0;
+    const taxa     = kmDist > 0 ? 0.40 : 0;
+    const base     = cachet + kmEuros;
+    const iva      = base * IVA;
+    totalBase     += base;
     lines.push([
       d.date,
       csvCell(d.artista),
-      csvCell(d.evento),
       csvCell(d.local),
       fmtCSV(cachet),
-      fmtCSV(km),
+      kmDist > 0 ? String(Math.round(kmDist)) : '',
+      taxa > 0 ? fmtCSV(taxa) : '',
+      kmEuros > 0 ? fmtCSV(kmEuros) : '',
       fmtCSV(base),
       fmtCSV(iva),
       fmtCSV(base + iva)
@@ -300,7 +382,7 @@ function buildCSV(items, label) {
 
   // linha de totais
   lines.push([
-    'TOTAL', '', '', '', '', '',
+    'TOTAL', '', '', '', '', '', '', '',
     fmtCSV(totalBase),
     fmtCSV(totalBase * IVA),
     fmtCSV(totalBase * (1 + IVA))
@@ -327,8 +409,9 @@ function exportMonthCSV(key) {
   const [y, m] = key.split('-').map(Number);
   const year   = parseInt(ySel.value) || 0;
   const month  = parseInt(document.getElementById('monthSel').value) || 0;
-  const items  = rows.filter(d => d.year===y && d.month===m &&
-                              (!year||d.year===year) && (!month||d.month===month));
+  const items  = rows.filter(d => d.year_fat===y && d.month_fat===m &&
+                              (!year||d.year_fat===year) && (!month||d.month_fat===month) &&
+                              rowMatchesAgencia(d));
   const label  = `${MONTHS[m]}_${y}`;
   downloadCSV(buildCSV(items, label), `faturacao_${label}.csv`);
 }

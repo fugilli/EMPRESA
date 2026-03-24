@@ -41,6 +41,7 @@ CONCERT_DATA_FILE    = 'data/concert_data.json'
 CONCERTS_BASE_FILE   = 'data/concerts_base.json'   # dados locais do calendário
 DISTANCES_CACHE_FILE = 'data/distances_cache.json'
 AGENCIES_FILE        = 'data/agencies.json'
+EMPRESA_FILE         = 'data/empresa.json'
 OAUTH_STATE_FILE     = 'data/oauth_state.tmp'
 DELETED_EVENTS_FILE  = 'data/deleted_events.json'
 DESPESAS_FILE        = 'data/despesas.json'
@@ -236,14 +237,34 @@ def _build_concerts_from_local():
         cachet     = ov.get('cachet', '') or artist_base.get(artista, '')
         if substituto:
             cachet = '0'
-        # usa apenas o cache em memória — sem HTTP
-        km = distances.get(local) if local else None
+        # usa override manual se existir, senão cache em memória
+        km_override = ov.get('km_override', '')
+        if km_override != '':
+            try:
+                km = float(km_override)
+            except (ValueError, TypeError):
+                km = distances.get(local) if local else None
+        else:
+            km = distances.get(local) if local else None
         cobrar_km = bool(ov.get('cobrar_km', False))
         km_euros  = round((km or 0) * 0.40, 2) if (km is not None and cobrar_km) else 0
+
+        mes_fatura = ov.get('mes_fatura', '')  # número do mês "1"-"12" ou ""
+        try:
+            if mes_fatura:
+                month_fat = int(mes_fatura)
+                # se mês de fatura < mês do concerto → fatura no ano seguinte (ex: Dez→Jan)
+                year_fat = year + (1 if month_fat < month else 0)
+            else:
+                year_fat, month_fat = year, month
+        except Exception:
+            year_fat, month_fat = year, month
 
         concerts_list.append({
             'id': event_id, 'date': date_str, 'time': time_str,
             'year': year, 'month': month,
+            'year_fat': year_fat, 'month_fat': month_fat,
+            'mes_fatura': mes_fatura,
             'artista': artista, 'evento': evento, 'local': local,
             'substituto': substituto, 'cachet': cachet,
             'km': km if km is not None else '',
@@ -474,8 +495,12 @@ def faturacao():
 
         cal_name, last_sync = _page_context()
         lst = _build_concerts_from_local()
+        emp = load_json(EMPRESA_FILE, {})
+        ags = load_json(AGENCIES_FILE, {'agencies': []})['agencies']
         return render_template('faturacao.html',
                                concerts_json=json.dumps(lst),
+                               empresa_json=json.dumps(emp),
+                               agencias_json=json.dumps(ags),
                                calendar_name=cal_name,
                                last_sync=last_sync)
     except Exception as e:
@@ -491,7 +516,7 @@ def update_concert():
     field    = body.get('field')
     value    = body.get('value')
 
-    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet', 'cobrar_km'}:
+    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet', 'cobrar_km', 'mes_fatura', 'km_override'}:
         return jsonify({'ok': False, 'error': 'campo inválido'})
 
     data = load_json(CONCERT_DATA_FILE, {})
@@ -508,13 +533,26 @@ def update_concert():
     if field == 'local':
         km = driving_distance_km(str(value or '').strip()) if value else None
     if field == 'cobrar_km':
-        # local pode estar no override ou parseado do summary
         local_val = data[event_id].get('local', '')
         if not local_val:
             base_ev = load_json(CONCERTS_BASE_FILE, {'events': {}}).get('events', {}).get(event_id, {})
             _, _, local_val, _ = parse_event_title(base_ev.get('summary', ''))
-        km_from_cache = _get_distances_mem().get(local_val or '')
+        km_override = data[event_id].get('km_override', '')
+        if km_override != '':
+            try:
+                km_from_cache = float(km_override)
+            except (ValueError, TypeError):
+                km_from_cache = _get_distances_mem().get(local_val or '')
+        else:
+            km_from_cache = _get_distances_mem().get(local_val or '')
         km_euros = round((km_from_cache or 0) * 0.40, 2) if (km_from_cache and bool(value)) else 0
+    if field == 'km_override':
+        cobrar_km = bool(data[event_id].get('cobrar_km', False))
+        try:
+            km = float(value) if value else None
+        except (ValueError, TypeError):
+            km = None
+        km_euros = round((km or 0) * 0.40, 2) if (km is not None and cobrar_km) else 0
 
     return jsonify({'ok': True, 'km': km, 'km_euros': km_euros})
 
@@ -537,6 +575,34 @@ def _build_artist_base_cachet():
             if a['nome'] and a['cachet_base']:
                 lookup[a['nome']] = a['cachet_base']
     return lookup
+
+
+@app.route('/empresa')
+def empresa():
+    if not get_credentials():
+        return redirect(url_for('auth'))
+    cal_name, last_sync = _page_context()
+    emp = load_json(EMPRESA_FILE, {})
+    return render_template('empresa.html', empresa_json=json.dumps(emp),
+                           calendar_name=cal_name, last_sync=last_sync)
+
+
+@app.route('/api/empresa', methods=['GET'])
+def api_get_empresa():
+    return jsonify(load_json(EMPRESA_FILE, {}))
+
+
+@app.route('/api/empresa', methods=['PUT'])
+def api_put_empresa():
+    body = request.get_json()
+    allowed = ['nome', 'nif', 'morada', 'codigo_postal', 'localidade',
+                'telefone', 'email', 'iban', 'bic', 'banco', 'site']
+    emp = load_json(EMPRESA_FILE, {})
+    for k in allowed:
+        if k in body:
+            emp[k] = body[k].strip() if isinstance(body[k], str) else body[k]
+    save_json(EMPRESA_FILE, emp)
+    return jsonify({'ok': True})
 
 
 @app.route('/agencias')
@@ -563,7 +629,9 @@ def api_create_agencia():
     if not nome:
         return jsonify({'ok': False, 'error': 'Nome obrigatório'})
     data   = load_json(AGENCIES_FILE, {'agencies': []})
-    new_ag = {'id': str(uuid.uuid4()), 'nome': nome, 'nif': nif, 'artistas': []}
+    new_ag = {'id': str(uuid.uuid4()), 'nome': nome, 'nif': nif,
+              'morada': '', 'codigo_postal': '', 'localidade': '',
+              'email': '', 'telefone': '', 'artistas': []}
     data['agencies'].append(new_ag)
     save_json(AGENCIES_FILE, data)
     return jsonify({'ok': True, 'agency': new_ag})
@@ -575,8 +643,9 @@ def api_update_agencia(agency_id):
     data = load_json(AGENCIES_FILE, {'agencies': []})
     for ag in data['agencies']:
         if ag['id'] == agency_id:
-            ag['nome'] = body.get('nome', ag['nome']).strip()
-            ag['nif']  = body.get('nif',  ag['nif']).strip()
+            for field in ['nome', 'nif', 'morada', 'codigo_postal', 'localidade', 'email', 'telefone']:
+                if field in body:
+                    ag[field] = body[field].strip()
             save_json(AGENCIES_FILE, data)
             return jsonify({'ok': True})
     return jsonify({'ok': False, 'error': 'não encontrada'})
@@ -957,11 +1026,13 @@ def _build_contabilidade():
     for c in concerts:
         if c.get('substituto'):
             continue
+        if not c.get('mes_fatura'):   # só conta quando fatura já foi emitida
+            continue
         try:
             cachet = _to_float(c.get('cachet') or 0)
         except Exception:
             cachet = 0.0
-        key = (c['year'], c['month'])
+        key = (c.get('year_fat', c['year']), c.get('month_fat', c['month']))
         if cachet > 0:
             rend_mes.setdefault(key, {'base': 0.0, 'iva': 0.0})
             rend_mes[key]['base'] += cachet
