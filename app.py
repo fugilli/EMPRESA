@@ -268,7 +268,9 @@ def _build_concerts_from_local():
             'artista': artista, 'evento': evento, 'local': local,
             'substituto': substituto, 'cachet': cachet,
             'km': km if km is not None else '',
-            'cobrar_km': cobrar_km, 'km_euros': km_euros
+            'cobrar_km': cobrar_km, 'km_euros': km_euros,
+            'fatura_emitida': bool(ov.get('fatura_emitida', False)),
+            'fatura_recebida': bool(ov.get('fatura_recebida', False)),
         })
 
     return concerts_list
@@ -516,13 +518,13 @@ def update_concert():
     field    = body.get('field')
     value    = body.get('value')
 
-    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet', 'cobrar_km', 'mes_fatura', 'km_override'}:
+    if field not in {'artista', 'evento', 'local', 'substituto', 'cachet', 'cobrar_km', 'mes_fatura', 'km_override', 'fatura_emitida', 'fatura_recebida'}:
         return jsonify({'ok': False, 'error': 'campo inválido'})
 
     data = load_json(CONCERT_DATA_FILE, {})
     if event_id not in data:
         data[event_id] = {}
-    if field == 'cobrar_km':
+    if field in {'cobrar_km', 'fatura_emitida', 'fatura_recebida'}:
         data[event_id][field] = bool(value)
     else:
         data[event_id][field] = str(value or '').strip()

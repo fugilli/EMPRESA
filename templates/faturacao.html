@@ -43,16 +43,41 @@
     .badge-tot  { background:#e3f2fd; color:#1565c0; }
     .badge-liq  { background:#f3f4f6; color:#333; }
 
+    /* badges de estado emitida/recebida */
+    .st-badge { border-radius:12px; padding:2px 8px; font-size:.72rem; font-weight:600; white-space:nowrap; display:inline-block; }
+    .st-ok   { background:#e8f5e9; color:#2e7d32; }
+    .st-part { background:#fff8e1; color:#f57f17; }
+    .st-none { background:#f5f5f5; color:#9e9e9e; }
+    .st-rec-ok   { background:#e3f2fd; color:#1565c0; }
+    .st-rec-part { background:#fff8e1; color:#f57f17; }
+    .st-rec-none { background:#f5f5f5; color:#9e9e9e; }
+
     .btn-csv { background:#e8f5e9; color:#2e7d32; border:none; border-radius:6px;
                padding:3px 10px; font-size:.75rem; font-weight:600; cursor:pointer;
                white-space:nowrap; }
     .btn-csv:hover { background:#c8e6c9; }
+    .btn-mark { background:none; border:1px solid #ccc; border-radius:5px; padding:2px 8px;
+                font-size:.72rem; cursor:pointer; color:#555; white-space:nowrap; }
+    .btn-mark:hover { background:#eee; }
+    .btn-mark.emitir { border-color:#a5d6a7; color:#2e7d32; }
+    .btn-mark.emitir:hover { background:#e8f5e9; }
+    .btn-mark.receber { border-color:#90caf9; color:#1565c0; }
+    .btn-mark.receber:hover { background:#e3f2fd; }
+    .actions-cell { display:flex; gap:5px; align-items:center; flex-wrap:nowrap; }
 
     .detail-card { display:none; }
     .detail-card.visible { display:block; }
     .detail-header { background:#f8f8f8; padding:10px 16px; font-size:.82rem; font-weight:600; color:#555; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
     table.detail-table td { padding:7px 12px !important; font-size:.85rem; }
     table.detail-table th { padding:8px 12px !important; }
+
+    /* grupo de agência no detalhe */
+    .ag-header-row td { background:#eef2ff; padding:8px 14px !important; }
+    .ag-header-row td .ag-title { font-weight:700; font-size:.86rem; color:#1a1a2e; }
+    .ag-header-row td .ag-actions { display:inline-flex; gap:6px; margin-left:12px; }
+
+    /* checkboxes de estado */
+    input.cb-st { width:16px; height:16px; cursor:pointer; accent-color:#4f8ef7; }
 
     .info-bar { font-size:.78rem; color:#999; margin-top:10px; }
     .empty-state { text-align:center; padding:60px; color:#aaa; }
@@ -77,6 +102,16 @@
     html.dark .month-row:hover td { background:#1e2845; }
     html.dark .month-row.selected td { background:#1e2845; }
     html.dark .detail-header { background:#161921; color:#8b9ab0; border-bottom-color:#2a2d3e; }
+    html.dark .ag-header-row td { background:#1a2040; }
+    html.dark .ag-header-row td .ag-title { color:#e0e6f0; }
+    html.dark .btn-mark { border-color:#444; color:#aaa; }
+    html.dark .btn-mark:hover { background:#2a2d3e; }
+    html.dark .btn-mark.emitir { border-color:#388e3c; color:#81c784; }
+    html.dark .btn-mark.emitir:hover { background:#1b3a1f; }
+    html.dark .btn-mark.receber { border-color:#1565c0; color:#64b5f6; }
+    html.dark .btn-mark.receber:hover { background:#0d1f3a; }
+    html.dark .st-none { background:#2a2d3e; color:#666; }
+    html.dark .st-rec-none { background:#2a2d3e; color:#666; }
   </style>
 </head>
 <body>
@@ -118,7 +153,8 @@
             <th style="text-align:right">IVA 23% (€)</th>
             <th style="text-align:right">Total c/ IVA (€)</th>
             <th>Concertos</th>
-            <th style="width:80px"></th>
+            <th>Estado</th>
+            <th style="width:190px"></th>
           </tr>
         </thead>
         <tbody id="monthlyBody"></tbody>
@@ -145,6 +181,8 @@
             <th style="text-align:right">Base s/ IVA (€)</th>
             <th style="text-align:right">IVA 23% (€)</th>
             <th style="text-align:right">Total c/ IVA (€)</th>
+            <th style="text-align:center">Emitida</th>
+            <th style="text-align:center">Recebida</th>
           </tr>
         </thead>
         <tbody id="detailBody"></tbody>
@@ -152,7 +190,7 @@
     </div>
   </div>
 
-  <p class="info-bar">Clica numa linha para ver o detalhe · IVA calculado a 23% · ⬇ para exportar CSV do mês</p>
+  <p class="info-bar">Clica numa linha para ver o detalhe por agência · IVA calculado a 23% · ⬇ para exportar CSV do mês</p>
 </div>
 
 <script>
@@ -163,7 +201,7 @@ const IVA      = 0.23;
 const MONTHS   = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const fmt      = n => Number(n).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtE     = n => '€' + fmt(n);
-const fmtCSV   = n => Number(n).toFixed(2).replace('.', ',');  // vírgula para Excel PT
+const fmtCSV   = n => Number(n).toFixed(2).replace('.', ',');
 
 // lookup artista → agência
 const artistaToAgencia = {};
@@ -173,6 +211,10 @@ AGENCIAS.forEach(ag => {
 
 // apenas concertos com fatura emitida (mes_fatura definido) E com valor
 const rows = DATA.filter(d => d.mes_fatura && ((d.cachet !== '' && parseFloat(d.cachet) > 0) || d.km_euros > 0));
+
+// índice por id para actualizações in-memory
+const dataById = {};
+DATA.forEach(d => { dataById[d.id] = d; });
 
 // popular dropdowns de ano e agência
 const years = [...new Set(rows.map(d=>d.year_fat).filter(y=>y>0))].sort();
@@ -189,7 +231,8 @@ AGENCIAS.forEach(ag => {
   agSel.appendChild(o);
 });
 
-// guarda itens do mês aberto para exportação
+// estado do detalhe aberto
+let currentOpenKey = null;
 let currentDetailItems = [];
 let currentDetailLabel = '';
 
@@ -200,6 +243,54 @@ function rowMatchesAgencia(d) {
   if (!agId) return true;
   const ag = artistaToAgencia[d.artista];
   return ag && ag.id === agId;
+}
+
+// ── actualização de estado ────────────────────────────────────────────────────
+
+async function setStatus(eventId, field, value) {
+  const res = await fetch('/api/update_concert', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({event_id: eventId, field, value})
+  });
+  const json = await res.json();
+  if (json.ok && dataById[eventId]) {
+    dataById[eventId][field] = value;
+  }
+  applyFilter();
+}
+
+async function markAll(key, field, agId) {
+  // agId: undefined = todo o mês, string = agência específica, null = sem agência
+  const [y, m] = key.split('-').map(Number);
+  let targets = rows.filter(d => d.year_fat===y && d.month_fat===m && rowMatchesAgencia(d));
+  if (agId !== undefined) {
+    targets = targets.filter(d => {
+      const ag = artistaToAgencia[d.artista];
+      if (agId === null) return !ag;
+      return ag && ag.id === agId;
+    });
+  }
+  await Promise.all(targets.map(d =>
+    fetch('/api/update_concert', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({event_id: d.id, field, value: true})
+    })
+  ));
+  targets.forEach(d => { if (dataById[d.id]) dataById[d.id][field] = true; });
+  applyFilter();
+}
+
+// ── render ────────────────────────────────────────────────────────────────────
+
+function stBadge(n, total, type) {
+  if (total === 0) return '';
+  const cls = type === 'emit'
+    ? (n === total ? 'st-ok' : n > 0 ? 'st-part' : 'st-none')
+    : (n === total ? 'st-rec-ok' : n > 0 ? 'st-rec-part' : 'st-rec-none');
+  const icon = type === 'emit' ? '✉' : '€';
+  return `<span class="st-badge ${cls}">${icon} ${n}/${total}</span>`;
 }
 
 function applyFilter() {
@@ -224,17 +315,30 @@ function applyFilter() {
     const grp   = byMonth[key];
     const base  = grp.items.reduce((s,d)=>s+parseFloat(d.cachet||0)+(d.km_euros||0),0);
     const iva   = base * IVA;
-    const tot   = base + iva;
-    totalBase  += base;
     const label = `${MONTHS[grp.month]} ${grp.year}`;
-    return `<tr class="month-row" data-key="${key}" onclick="toggleDetail('${key}')">
+    totalBase  += base;
+
+    // contagens de estado (usando dataById para valores actualizados)
+    const emitidas  = grp.items.filter(d => dataById[d.id]?.fatura_emitida).length;
+    const recebidas = grp.items.filter(d => dataById[d.id]?.fatura_recebida).length;
+    const tot       = grp.items.length;
+
+    const selected = currentOpenKey === key ? ' selected' : '';
+    return `<tr class="month-row${selected}" data-key="${key}" onclick="toggleDetail('${key}')">
       <td><strong>${label}</strong></td>
       <td style="text-align:right"><span class="badge-euro badge-liq">${fmtE(base)}</span></td>
       <td style="text-align:right"><span class="badge-euro badge-iva">${fmtE(iva)}</span></td>
-      <td style="text-align:right"><span class="badge-euro badge-tot">${fmtE(tot)}</span></td>
-      <td style="color:#888">${grp.items.length}</td>
+      <td style="text-align:right"><span class="badge-euro badge-tot">${fmtE(base*(1+IVA))}</span></td>
+      <td style="color:#888">${tot}</td>
+      <td style="white-space:nowrap">
+        ${stBadge(emitidas, tot, 'emit')}&nbsp;${stBadge(recebidas, tot, 'recv')}
+      </td>
       <td onclick="event.stopPropagation()">
-        <button class="btn-csv" onclick="exportMonthCSV('${key}')">⬇ CSV</button>
+        <div class="actions-cell">
+          <button class="btn-mark emitir" onclick="markAll('${key}','fatura_emitida')" title="Marcar todas como emitidas">✉ Todas</button>
+          <button class="btn-mark receber" onclick="markAll('${key}','fatura_recebida')" title="Marcar todas como recebidas">€ Todas</button>
+          <button class="btn-csv" onclick="exportMonthCSV('${key}')">⬇ CSV</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -249,59 +353,95 @@ function applyFilter() {
   document.getElementById('tAnnualWrap').style.display = showAnnual ? '' : 'none';
   document.getElementById('tAnnual').textContent = fmtE(totalAnualBase * (1 + IVA));
 
-  document.getElementById('detailCard').classList.remove('visible');
-  document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
+  // re-abre o detalhe se estava aberto e ainda existe
+  if (currentOpenKey && byMonth[currentOpenKey]) {
+    const items = byMonth[currentOpenKey].items;
+    currentDetailItems = items;
+    const [, m] = currentOpenKey.split('-').map(Number);
+    const [y]   = currentOpenKey.split('-').map(Number);
+    currentDetailLabel = `${MONTHS[m]}_${y}`;
+    document.getElementById('detailHeader').textContent =
+      `Detalhe — ${MONTHS[m]} ${y} (${items.length} concerto(s))`;
+    renderDetailBody(currentOpenKey, items);
+    document.getElementById('detailCard').classList.add('visible');
+  } else if (!byMonth[currentOpenKey]) {
+    currentOpenKey = null;
+    document.getElementById('detailCard').classList.remove('visible');
+  }
 }
 
 function toggleDetail(key) {
-  const monthRows = document.querySelectorAll(`.month-row[data-key="${key}"]`);
-  const card      = document.getElementById('detailCard');
-  const isOpen    = monthRows[0]?.classList.contains('selected');
+  if (currentOpenKey === key) {
+    currentOpenKey = null;
+    document.getElementById('detailCard').classList.remove('visible');
+    document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
+    applyFilter();
+    return;
+  }
+  currentOpenKey = key;
+  applyFilter();
+  document.getElementById('detailCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
 
-  document.querySelectorAll('.month-row').forEach(r => r.classList.remove('selected'));
-  card.classList.remove('visible');
-  if (isOpen) return;
+function renderDetailBody(key, items) {
+  // agrupar por agência
+  const groups = [];
+  const seen   = {};
+  items.forEach(d => {
+    const ag    = artistaToAgencia[d.artista];
+    const agId  = ag ? ag.id   : '__none__';
+    const agNome = ag ? ag.nome : 'Sem Agência';
+    if (!seen[agId]) { seen[agId] = true; groups.push({agId, agNome, items:[]}); }
+    groups.find(g => g.agId === agId).items.push(d);
+  });
 
-  monthRows.forEach(r => r.classList.add('selected'));
-
-  const [y, m]   = key.split('-').map(Number);
-  const year     = parseInt(ySel.value) || 0;
-  const month    = parseInt(document.getElementById('monthSel').value) || 0;
-  const items    = rows.filter(d => d.year_fat===y && d.month_fat===m &&
-                               (!year||d.year_fat===year) && (!month||d.month_fat===month) &&
-                               rowMatchesAgencia(d));
-
-  currentDetailItems = items;
-  currentDetailLabel = `${MONTHS[m]}_${y}`;
-
-  document.getElementById('detailHeader').textContent =
-    `Detalhe — ${MONTHS[m]} ${y} (${items.length} concerto(s))`;
-
-  document.getElementById('detailBody').innerHTML = items.map(d => {
-    const cachet = parseFloat(d.cachet) || 0;
-    const km     = d.km_euros || 0;
-    const base   = cachet + km;
-    const iva    = base * IVA;
-    return `<tr>
-      <td><strong>${esc(d.date)}</strong></td>
-      <td>${esc(d.artista)}</td>
-      <td>${esc(d.evento)}</td>
-      <td>${esc(d.local)}</td>
-      <td style="text-align:right">${fmtE(cachet)}</td>
-      <td style="text-align:right;color:#1565c0">${km > 0 ? fmtE(km) : '—'}</td>
-      <td style="text-align:right">${fmtE(base)}</td>
-      <td style="text-align:right;color:#e65100">${fmtE(iva)}</td>
-      <td style="text-align:right"><strong>${fmtE(base+iva)}</strong></td>
+  let html = '';
+  groups.forEach(grp => {
+    const keyQ = key.replace(/'/g, "\\'");
+    const agIdQ = grp.agId === '__none__' ? 'null' : `'${grp.agId}'`;
+    html += `<tr class="ag-header-row">
+      <td colspan="11">
+        <span class="ag-title">${esc(grp.agNome)}</span>
+        <span class="ag-actions">
+          <button class="btn-mark emitir" onclick="markAll('${keyQ}','fatura_emitida',${agIdQ})">✉ Marcar todas emitidas</button>
+          <button class="btn-mark receber" onclick="markAll('${keyQ}','fatura_recebida',${agIdQ})">€ Marcar todas recebidas</button>
+        </span>
+      </td>
     </tr>`;
-  }).join('');
-
-  card.classList.add('visible');
+    grp.items.forEach(d => {
+      const cachet  = parseFloat(d.cachet) || 0;
+      const km      = d.km_euros || 0;
+      const base    = cachet + km;
+      const iva     = base * IVA;
+      const emitida  = dataById[d.id]?.fatura_emitida  || false;
+      const recebida = dataById[d.id]?.fatura_recebida || false;
+      html += `<tr>
+        <td><strong>${esc(d.date)}</strong></td>
+        <td>${esc(d.artista)}</td>
+        <td>${esc(d.evento)}</td>
+        <td>${esc(d.local)}</td>
+        <td style="text-align:right">${fmtE(cachet)}</td>
+        <td style="text-align:right;color:#1565c0">${km > 0 ? fmtE(km) : '—'}</td>
+        <td style="text-align:right">${fmtE(base)}</td>
+        <td style="text-align:right;color:#e65100">${fmtE(iva)}</td>
+        <td style="text-align:right"><strong>${fmtE(base+iva)}</strong></td>
+        <td style="text-align:center">
+          <input type="checkbox" class="cb-st" ${emitida ? 'checked' : ''}
+            onchange="setStatus('${d.id}','fatura_emitida',this.checked)">
+        </td>
+        <td style="text-align:center">
+          <input type="checkbox" class="cb-st" ${recebida ? 'checked' : ''}
+            onchange="setStatus('${d.id}','fatura_recebida',this.checked)">
+        </td>
+      </tr>`;
+    });
+  });
+  document.getElementById('detailBody').innerHTML = html;
 }
 
 // ── exportação CSV ────────────────────────────────────────────────────────────
 
 function getAgenciaForItems(items) {
-  // devolve a agência se todos os items pertencem à mesma, ou null
   const agIds = new Set(items.map(d => {
     const ag = artistaToAgencia[d.artista];
     return ag ? ag.id : null;
@@ -317,10 +457,8 @@ function buildCSV(items, label) {
   const BOM = '\uFEFF';
   const sep = ';';
   const lines = [];
-
   const blank = () => lines.push('');
 
-  // ── EMITENTE ──
   if (EMPRESA.nome || EMPRESA.nif) {
     lines.push('EMITENTE');
     if (EMPRESA.nome)         lines.push([csvCell('Nome'),      csvCell(EMPRESA.nome)].join(sep));
@@ -336,7 +474,6 @@ function buildCSV(items, label) {
     blank(); blank();
   }
 
-  // ── DESTINATÁRIO ──
   const ag = getAgenciaFilter()
     ? AGENCIAS.find(a => a.id === getAgenciaFilter())
     : getAgenciaForItems(items);
@@ -353,7 +490,6 @@ function buildCSV(items, label) {
     blank(); blank();
   }
 
-  // ── FATURAÇÃO ──
   lines.push('FATURAÇÃO ' + label.replace('_', ' '));
   lines.push(['Data', 'Artista', 'Local', 'Cachet (€)', 'Distância (km)', 'Taxa (€/km)', 'KM (€)', 'Base s/ IVA (€)', 'IVA 23% (€)', 'Total c/ IVA (€)'].join(sep));
 
@@ -380,9 +516,8 @@ function buildCSV(items, label) {
     ].join(sep));
   }
 
-  // linha de totais
   lines.push([
-    'TOTAL', '', '', '', '', '', '', '',
+    'TOTAL', '', '', '', '', '', '',
     fmtCSV(totalBase),
     fmtCSV(totalBase * IVA),
     fmtCSV(totalBase * (1 + IVA))

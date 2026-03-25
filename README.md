@@ -98,7 +98,9 @@ Overrides do utilizador por `event_id`. Sobrepõe-se ao parsed do `summary`.
     "cachet": "1500",
     "cobrar_km": true,
     "km_override": "350",
-    "mes_fatura": "3"
+    "mes_fatura": "3",
+    "fatura_emitida": true,
+    "fatura_recebida": false
   }
 }
 ```
@@ -499,6 +501,36 @@ Na tab **Faturação**, quando um concerto tem `cobrar_km=True`:
 - O IVA 23% é calculado sobre a base total: `IVA = (Cachet + KM) × 23%`
 - O detalhe mensal mostra as colunas: Cachet | KM | Base s/ IVA | IVA 23% | Total c/ IVA
 - Concertos com `km_euros > 0` mas sem cachet também aparecem na faturação
+
+---
+
+## Estado de Faturação (emissão e recebimento)
+
+Cada concerto na tab **Faturação** tem dois campos de estado booleanos guardados em `concert_data.json`:
+
+| Campo | Significado |
+|---|---|
+| `fatura_emitida` | A fatura/recibo já foi enviado à agência |
+| `fatura_recebida` | O pagamento já foi recebido |
+
+### Visualização na tabela mensal
+
+A coluna **Estado** mostra badges coloridos por mês:
+- `✉ X/Y` — quantas faturas emitidas do total (verde = todas, amarelo = parcial, cinzento = nenhuma)
+- `€ X/Y` — quantos pagamentos recebidos (mesma lógica de cores)
+
+Botões de acção rápida por linha de mês:
+- **✉ Todas** — marca todos os concertos do mês como `fatura_emitida = true`
+- **€ Todas** — marca todos os concertos do mês como `fatura_recebida = true`
+
+### Visualização no detalhe do mês
+
+Ao expandir um mês, os concertos aparecem **agrupados por agência**. Cada grupo tem:
+- Cabeçalho com o nome da agência
+- Botões **✉ Marcar todas emitidas** e **€ Marcar todas recebidas** para esse grupo
+- Checkboxes individuais por concerto nas colunas **Emitida** e **Recebida**
+
+Todas as alterações são guardadas imediatamente via `POST /api/update_concert` (campos `fatura_emitida` e `fatura_recebida`, tipo bool). Os badges de estado na tabela mensal actualizam sem recarregar a página.
 
 ---
 
